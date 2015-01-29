@@ -1,0 +1,19 @@
+; @file
+; Module description file for lazy_demo.
+;
+; @author: Frederic G. MARAND <fgm@osinet.fr>
+;
+; @copyright (c) 2015 Ouest Systèmes Informatiques (OSInet).
+;
+; @license General Public License version 2 or later
+
+name = Lazy Demo
+description = A demo module for Lazy
+package = Performance and scalability
+project status url = http://features.osinet.eu/fserver
+hidden = true
+
+php = 5.4
+core = 7.x
+
+dependencies[] = lazy

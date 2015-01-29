@@ -1,0 +1,15 @@
+{
+    "name": "osinet/lazy",
+    "description": "Lazy module",
+    "require": {
+        "pda/pheanstalk": "~3.0@dev"
+    },
+    "license": "GPL-2.0+",
+    "authors": [
+        {
+            "name": "Frederic G. MARAND",
+            "email": "fgm@osinet.fr"
+        }
+    ],
+    "minimum-stability": "dev"
+}

@@ -1,0 +1,42 @@
+<?php
+/**
+ * @file
+ * lazy.install
+ *
+ * @author: Frédéric G. MARAND <fgm@osinet.fr>
+ *
+ * @copyright (c) 2015 Ouest Systèmes Informatiques (OSInet).
+ *
+ * @license General Public License version 2 or later
+ */
+
+use OSInet\Lazy\Controller;
+
+/**
+ * Implements hook_schema().
+ *
+ * @see lazy_flush_caches()
+ */
+function lazy_schema() {
+  $schema['cache_lazy'] = drupal_get_schema_unprocessed('system', 'cache');
+
+  return $schema;
+}
+
+/**
+ * Implements hook_enable().
+ */
+function lazy_enable() {
+  /** @var \DrupalQueueInterface $q */
+  $q = DrupalQueue::get(Controller::QUEUE_NAME);
+  $q->createQueue();
+}
+
+/**
+ * Implements hook_disable().
+ */
+function lazy_disable() {
+  /** @var \DrupalQueueInterface $q */
+  $q = DrupalQueue::get(Controller::QUEUE_NAME);
+  $q->deleteQueue();
+}

@@ -1,0 +1,93 @@
+<?php
+/**
+ * @file
+ * lazy.module
+ *
+ * @author: Frédéric G. MARAND <fgm@osinet.fr>
+ *
+ * @copyright (c) 2015 Ouest Systèmes Informatiques (OSInet).
+ *
+ * @license General Public License version 2 or later
+ */
+
+use \OSInet\Lazy\Router;
+use \OSInet\Lazy\Controller;
+
+/**
+ * Controller for overridden routes.
+ *
+ * @param string $action
+ * @param string $original_route
+ *
+ * @return mixed|string
+ */
+function lazy_controller_override($action, $original_route) {
+  $args = array_slice(func_get_args(), 2);
+  $controller = new Controller($original_route, $action);
+
+  $ret = $controller->execute($args);
+  return $ret;
+}
+
+/**
+ * Implements hook_cron_queue_info().
+ */
+function lazy_cron_queue_info() {
+  $ret = [
+    'lazy' => [
+      'worker callback' => 'lazy_worker',
+      'time' => Controller::EXECUTE_TIMEOUT,
+      'skip on cron' => FALSE,
+    ],
+  ];
+
+  return $ret;
+}
+// Do not flush expired cache entries: we need them to be served as invalid while a new entry is being built
+///**
+// * Implements hook_flush_caches().
+// */
+//function lazy_flush_caches() {
+//  module_load_install('lazy');
+//  return array_keys(lazy_schema());
+//}
+
+/**
+ * PSR-3 Logger factory.
+ *
+ * @return \Psr3Watchdog
+ */
+function lazy_logger() {
+  $logger = &drupal_static(__FUNCTION__);
+  if (!isset($logger)) {
+    $logger = new Psr3Watchdog();
+    $logger->setType('lazy');
+  }
+
+  return $logger;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function lazy_menu_alter(&$routes) {
+  $altered_names = variable_get('lazy-routes', []);
+  $router = new Router($routes, $altered_names, lazy_logger());
+  $altered_routes = $router->alteredRoutes();
+
+  foreach ($altered_routes as $name => $info) {
+    $routes[$name] = $info;
+  }
+}
+
+/**
+ * Implements hook_xautoload().
+ */
+function lazy_xautoload($api) {
+  $api->absolute()->addPsr4('OSInet\Lazy\\', __DIR__ . '/lib/OSInet/Lazy');
+}
+
+function lazy_worker($job) {
+  lazy_logger()->debug("Job: {job}", ['job' => var_export($job, TRUE)]);
+  dsm($job, __METHOD__);
+}

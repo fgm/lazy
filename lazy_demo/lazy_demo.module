@@ -1,0 +1,32 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function lazy_demo_menu() {
+  $items = [];
+  $items['lazy_demo'] = [
+    'title' => 'Lazy demo',
+    'page callback' => 'lazy_demo_page_demo',
+    'access arguments' => ['access content'],
+  ];
+
+  return $items;
+}
+
+/**
+ * Controller for 'lazy_demo' route.
+ */
+function lazy_demo_page_demo() {
+  $delay = 3;
+
+  sleep($delay);
+  $ret = [
+    '#markup' => t('This page takes @delay seconds to build initially, starting at @date.', [
+      '@delay' => $delay,
+      '@date' => format_date(REQUEST_TIME, 'custom', 'Y-m-d H:i:s'),
+    ]),
+  ];
+
+  return $ret;
+}
