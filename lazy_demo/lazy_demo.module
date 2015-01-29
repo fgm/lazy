@@ -1,4 +1,15 @@
 <?php
+/**
+ * @file
+ * Hidden demo module for lazy.module
+ *
+ * @author: Frédéric G. MARAND <fgm@osinet.fr>
+ *
+ * @copyright (c) 2015 Ouest Systèmes Informatiques (OSInet).
+ *
+ * @license General Public License version 2 or later
+ */
+
 
 /**
  * Implements hook_menu().

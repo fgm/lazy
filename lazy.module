@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * lazy.module
+ * Lazy page generation module.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -10,22 +10,23 @@
  * @license General Public License version 2 or later
  */
 
-use \OSInet\Lazy\Router;
+use \Drupal\xautoload\Adapter\LocalDirectoryAdapter;
 use \OSInet\Lazy\Controller;
+use \OSInet\Lazy\Router;
 
 /**
  * Controller for overridden routes.
  *
- * @param string $action
+ * @param string $original_controller
  * @param string $original_route
  *
  * @return mixed|string
  */
-function lazy_controller_override($action, $original_route) {
+function lazy_controller_override($original_controller, $original_route) {
   $args = array_slice(func_get_args(), 2);
-  $controller = new Controller($original_route, $action);
+  $controller = new Controller($original_route, $original_controller, $args);
 
-  $ret = $controller->execute($args);
+  $ret = $controller->build($args);
   return $ret;
 }
 
@@ -33,29 +34,13 @@ function lazy_controller_override($action, $original_route) {
  * Implements hook_cron_queue_info().
  */
 function lazy_cron_queue_info() {
-  $ret = [
-    'lazy' => [
-      'worker callback' => 'lazy_worker',
-      'time' => Controller::EXECUTE_TIMEOUT,
-      'skip on cron' => FALSE,
-    ],
-  ];
-
-  return $ret;
+  return Controller::cronQueueInfo();
 }
-// Do not flush expired cache entries: we need them to be served as invalid while a new entry is being built
-///**
-// * Implements hook_flush_caches().
-// */
-//function lazy_flush_caches() {
-//  module_load_install('lazy');
-//  return array_keys(lazy_schema());
-//}
 
 /**
  * PSR-3 Logger factory.
  *
- * @return \Psr3Watchdog
+ * @return \Psr\Log\LoggerInterface
  */
 function lazy_logger() {
   $logger = &drupal_static(__FUNCTION__);
@@ -83,11 +68,6 @@ function lazy_menu_alter(&$routes) {
 /**
  * Implements hook_xautoload().
  */
-function lazy_xautoload($api) {
-  $api->absolute()->addPsr4('OSInet\Lazy\\', __DIR__ . '/lib/OSInet/Lazy');
-}
-
-function lazy_worker($job) {
-  lazy_logger()->debug("Job: {job}", ['job' => var_export($job, TRUE)]);
-  dsm($job, __METHOD__);
+function lazy_xautoload(LocalDirectoryAdapter $adapter) {
+  $adapter->absolute()->addPsr4('OSInet\Lazy\\', __DIR__ . '/lib/OSInet/Lazy');
 }
