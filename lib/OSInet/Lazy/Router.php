@@ -16,8 +16,6 @@ namespace OSInet\Lazy;
 use Psr\Log\LoggerInterface;
 
 class Router {
-  const CONTROLLER = 'lazy_controller_override';
-
   /**
    * @var \Psr\Log\LoggerInterface
    */
@@ -25,16 +23,16 @@ class Router {
 
   public $defaultRoutes;
 
-  public $alteredRoutes;
+  public $requestedRoutes;
 
-  public function __construct(array &$routes, array $altered, LoggerInterface $logger) {
+  public function __construct(array &$routes, array $requested, LoggerInterface $logger) {
     $this->defaultRoutes = $routes;
-    $this->alteredRoutes = $altered;
+    $this->requestedRoutes = $requested;
     $this->logger = $logger;
   }
 
   public function alteredRoutes() {
-    $inter = array_intersect_key($this->defaultRoutes, $this->alteredRoutes);
+    $inter = array_intersect_key($this->defaultRoutes, $this->requestedRoutes);
     foreach ($inter as $name => &$info) {
       if (!isset($info['page callback'])) {
         $this->logger->warning("Route {route} is marked for override, but has no controller defined.", ['route' => $name]);
@@ -46,7 +44,11 @@ class Router {
       $controller = $info['page callback'];
 
       array_unshift($controller_args, $name);
-      $info['page callback'] = static::CONTROLLER;
+      $info['page callback'] = Controller::NAME;
+
+      $route = Route::create($name, $info, $this->requestedRoutes[$name]);
+      array_unshift($controller_args, $route);
+
       array_unshift($controller_args, $controller);
       $info['page arguments'] = $controller_args;
     }

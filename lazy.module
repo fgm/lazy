@@ -10,22 +10,23 @@
  * @license General Public License version 2 or later
  */
 
-use \Drupal\xautoload\Adapter\LocalDirectoryAdapter;
-use \OSInet\Lazy\Controller;
-use \OSInet\Lazy\Router;
-use \OSInet\Lazy\Variable;
+use Drupal\xautoload\Adapter\LocalDirectoryAdapter;
+use OSInet\Lazy\Controller;
+use OSInet\Lazy\Route;
+use OSInet\Lazy\Router;
+use OSInet\Lazy\Variable;
 
 /**
  * Controller for overridden routes.
  *
  * @param string $original_controller
- * @param string $original_route
+ * @param Route $route
  *
  * @return mixed|string
  */
-function lazy_controller_override($original_controller, $original_route) {
+function lazy_controller_override($original_controller, Route $route) {
   $args = array_slice(func_get_args(), 2);
-  $controller = new Controller($original_route, $original_controller, $args);
+  $controller = new Controller($route, $original_controller, $args);
 
   $ret = $controller->build($args);
   return $ret;
@@ -56,14 +57,21 @@ function lazy_logger() {
 /**
  * Implements hook_menu_alter().
  */
-function lazy_menu_alter(&$routes) {
-  $altered_names = Variable::get('routes');
-  $router = new Router($routes, $altered_names, lazy_logger());
-  $altered_routes = $router->alteredRoutes();
+function lazy_menu_alter(&$default_routes) {
+  $requested_routes = Variable::get('routes');
+  $router = new Router($default_routes, $requested_routes, lazy_logger());
+  $actual_routes = $router->alteredRoutes();
 
-  foreach ($altered_routes as $name => $info) {
-    $routes[$name] = $info;
+  foreach ($actual_routes as $name => $info) {
+    $default_routes[$name] = $info;
   }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function lazy_permission() {
+  return Controller::permission();
 }
 
 /**

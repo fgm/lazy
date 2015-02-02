@@ -37,6 +37,11 @@ class Controller {
   const MAX_PASSES = 5;
 
   /**
+   * The name of the override controller function.
+   */
+  const NAME = 'lazy_controller_override';
+
+  /**
    * The name of the queue holding the deferred jobs.
    *
    * @var string
@@ -61,8 +66,8 @@ class Controller {
   public $builder;
 
   /**
-   * @var string
-   *   The name of the route (hook_menu() key) triggering this action.
+   * @var \OSInet\Lazy\Route
+   *   The route triggering this action.
    */
   public $route;
 
@@ -127,8 +132,8 @@ class Controller {
   /**
    * Controller constructor
    *
-   * @param string $route
-   *   The name of the route on which the contents is being built.
+   * @param \OSInet\Lazy\Route $route
+   *   The route on which the contents is being built.
    * @param string $builder
    *   The name of the function used to perform a rebuild. Can be a plain
    *   function or static method, but cannot be a Closure as it will be
@@ -150,7 +155,7 @@ class Controller {
    * @param int $did
    *   The domain id within which to build.
    */
-  public function __construct($route, $builder, array $args = [], LoggerInterface $logger = NULL, $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+  public function __construct(Route $route, $builder, array $args = [], LoggerInterface $logger = NULL, $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
     if (!isset($logger)) {
       $this->logger = lazy_logger();
     }
@@ -412,6 +417,28 @@ class Controller {
 
       $passes++;
     }
+
+    return $ret;
+  }
+
+  /**
+   * Implements hook_permission().
+   */
+  public static function permission() {
+    $ret = [
+      'lazy_front_on_miss' => [
+        'title' => t('Trigger front rendering on cache misses'),
+        'description' => t('This is the most common choice. You should normally give that permission to anonymous and authenticated users. Without it, content will be replaced by a fixed string.'),
+      ],
+      'lazy_front_on_expired' => [
+        'title' => t('Trigger front rendering on expired cache hits'),
+        'description' => t('This is good for editors needing to see changes to pages fast, while still keeping response time low.'),
+      ],
+      'lazy_front_always' => [
+        'title' => t('Trigger front rendering: always'),
+        'description' => t('This is the basic Drupal slow rendering, useful only for those who need to see changes applied without delay, at the expense of long page generation times.'),
+      ]
+    ];
 
     return $ret;
   }
