@@ -13,6 +13,7 @@
 use \Drupal\xautoload\Adapter\LocalDirectoryAdapter;
 use \OSInet\Lazy\Controller;
 use \OSInet\Lazy\Router;
+use \OSInet\Lazy\Variable;
 
 /**
  * Controller for overridden routes.
@@ -56,7 +57,7 @@ function lazy_logger() {
  * Implements hook_menu_alter().
  */
 function lazy_menu_alter(&$routes) {
-  $altered_names = variable_get('lazy-routes', []);
+  $altered_names = Variable::get('routes');
   $router = new Router($routes, $altered_names, lazy_logger());
   $altered_routes = $router->alteredRoutes();
 
