@@ -26,7 +26,7 @@ use OSInet\Lazy\Variable;
  */
 function lazy_controller_override($original_controller, Route $route) {
   $args = array_slice(func_get_args(), 2);
-  $controller = new Controller($route, $original_controller, $args);
+  $controller = Controller::create($route, $original_controller, $args);
 
   $ret = $controller->build($args);
   return $ret;

@@ -20,7 +20,7 @@ use Psr\Log\LoggerInterface;
  *
  * @package OSInet\Lazy
  */
-class Controller {
+abstract class Controller implements Builder {
   /**
    * The cache bin used by this class
    */
@@ -185,7 +185,7 @@ class Controller {
   }
 
   /**
-   * ASYNCHRONIZER Push a rebuild request to the queue.
+   * Push a rebuild request to the queue while holding a lock for existing content.
    *
    * @param \stdClass $data
    * @param string $cid
@@ -205,7 +205,7 @@ class Controller {
    * Getter for $cid.
    *
    * TODO cache varies per-everything : in the future, it
-   * could be useful to depend on specific context elements, like the local path,
+   * needs to depend only on specific context elements, as defined by Route::cache,
    * roles, or language.
    * TODO use a more compact CID format for better efficiency
    *
@@ -373,55 +373,6 @@ class Controller {
   }
 
   /**
-   * Return built page contents.
-   *
-   * @return mixed
-   *   String or render array in case of success, FALSE in case of failure.
-   */
-  public function build() {
-    $passes = 0;
-    $cid = $this->getCid();
-    $lock_name = __METHOD__;
-
-    $ret = FALSE;
-    while ($passes < static::MAX_PASSES) {
-      $cached = $this->cacheGet($cid);
-
-      // No valid data from cache: perform a synchronous build.
-      if (empty($cached) || empty($cached->data)) {
-        if ($this->lockAcquire($lock_name)) {
-          $ret = $this->renderFront($cid, $lock_name);
-          break;
-        }
-        else {
-          // Nothing possible right now: just wait on lock before iterating.
-          $this->lockWait($lock_name);
-        }
-      }
-      // Valid data from cache: they can be served.
-      else {
-        $ret = $cached->data;
-        if ($this->isStale($cached)) {
-          // No one else cares: trigger refresh and add grace to the cache item.
-          if ($this->lockAcquire($lock_name)) {
-            $this->enqueueRebuild($cached, $cid, $lock_name);
-          }
-          // Someone else is already handling refresh: leave it alone.
-          break;
-        }
-        // Valid fresh data: no extra work needed.
-        else {
-          break;
-        }
-      }
-
-      $passes++;
-    }
-
-    return $ret;
-  }
-
-  /**
    * Implements hook_permission().
    */
   public static function permission() {
@@ -453,7 +404,7 @@ class Controller {
    */
   protected function renderFront($cid, $lock_name) {
     $this->logger->debug("renderFront({cid})", ['cid' => $cid]);
-    $ret = call_user_func_array($this->builder, $this->args);
+    $ret = call_user_func($this->builder, $this->args, $this->route, get_class($this));
     $this->cacheSet($ret, $cid, static::CACHE_BIN, REQUEST_TIME + $this->ttl);
     lock_release($lock_name);
 
@@ -513,6 +464,40 @@ class Controller {
     }
 
     cache_set($cid, $content, $bin, $expire);
+  }
+
+  /**
+   * Controller factory.
+   *
+   * @param \OSInet\Lazy\Route $route
+   * @param string $original_controller
+   * @param array $args
+   * @param \Psr\Log\LoggerInterface $logger
+   * @param int $ttl
+   * @param int $minimumTtl
+   * @param int $grace
+   * @param null $uid
+   * @param null $did
+   *
+   * @return \OSInet\Lazy\Builder
+   */
+  public static function create(Route $route, $original_controller, array $args = [], LoggerInterface $logger = NULL, $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+    if (user_access('lazy_front_always')) {
+      $class = 'LiveController';
+    }
+    elseif (user_access('lazy_front_on_expired')) {
+      $class = 'FreshController';
+    }
+    elseif (user_access('lazy_front_on_miss')) {
+      $class = 'MissController';
+    }
+    else {
+      $class = 'StaticController';
+    }
+
+    $class = __NAMESPACE__ . "\\$class";
+    $ret = new $class($route, $original_controller, $args, $logger, $ttl, $minimumTtl, $grace, $uid, $did);
+    return $ret;
   }
 
   /**
