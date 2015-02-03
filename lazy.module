@@ -11,7 +11,7 @@
  */
 
 use Drupal\xautoload\Adapter\LocalDirectoryAdapter;
-use OSInet\Lazy\Controller;
+use OSInet\Lazy\Controller\Controller;
 use OSInet\Lazy\Route;
 use OSInet\Lazy\Router;
 use OSInet\Lazy\Variable;

@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * FreshController.php
+ * MissController.php
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -10,15 +10,16 @@
  * @license General Public License version 2 or later
  */
 
-namespace OSInet\Lazy;
+namespace OSInet\Lazy\Controller;
 
 /**
- * Class FreshController is a midpoint between MissController and LiveController
- * as it will serve fresh data from cache, but treat stale date as missing.
+ * Class MissController minimizes front building, but still permits it, by only
+ * performing front building in case of a cache miss. It is the default strategy
+ * in earlier versions and other packages like Asynchronizer.
  *
  * @package OSInet\Lazy
  */
-class FreshController extends Controller {
+class MissController extends Controller {
   /**
    * Return built page contents.
    *
@@ -33,9 +34,8 @@ class FreshController extends Controller {
     $ret = FALSE;
     while ($passes < static::MAX_PASSES) {
       $cached = $this->cacheGet($cid);
-
-      // No valid fresh data from cache: perform a synchronous build.
-      if (empty($cached) || empty($cached->data) || $this->isStale($cached)) {
+      // No valid data from cache: perform a synchronous build.
+      if (empty($cached) || empty($cached->data)) {
         if ($this->lockAcquire($lock_name)) {
           $ret = $this->renderFront($cid, $lock_name);
           break;
@@ -45,10 +45,21 @@ class FreshController extends Controller {
           $this->lockWait($lock_name);
         }
       }
-      // Valid data from cache: they are not stale, so no extra work needed.
+      // Valid data from cache: they can be served.
       else {
         $ret = $cached->data;
-        break;
+        if ($this->isStale($cached)) {
+          // No one else cares: trigger refresh and add grace to the cache item.
+          if ($this->lockAcquire($lock_name)) {
+            $this->enqueueRebuild($cached, $cid, $lock_name);
+          }
+          // Someone else is already handling refresh: leave it alone.
+          break;
+        }
+        // Valid fresh data: no extra work needed.
+        else {
+          break;
+        }
       }
 
       $passes++;
@@ -56,5 +67,4 @@ class FreshController extends Controller {
 
     return $ret;
   }
-
 }

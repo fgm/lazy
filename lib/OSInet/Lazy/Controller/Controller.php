@@ -11,8 +11,9 @@
  * @license General Public License version 2 or later
  */
 
-namespace OSInet\Lazy;
+namespace OSInet\Lazy\Controller;
 
+use OSInet\Lazy\Route;
 use Psr\Log\LoggerInterface;
 
 /**
