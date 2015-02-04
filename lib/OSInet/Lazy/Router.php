@@ -13,29 +13,25 @@
 namespace OSInet\Lazy;
 
 
-use Psr\Log\LoggerInterface;
+use OSInet\Lazy\Controller\Controller;
 
 class Router {
-  /**
-   * @var \Psr\Log\LoggerInterface
-   */
-  public $logger;
-
   public $defaultRoutes;
 
   public $requestedRoutes;
 
-  public function __construct(array &$routes, array $requested, LoggerInterface $logger) {
+  public function __construct(array &$routes, array $requested) {
     $this->defaultRoutes = $routes;
     $this->requestedRoutes = $requested;
-    $this->logger = $logger;
   }
 
   public function alteredRoutes() {
     $inter = array_intersect_key($this->defaultRoutes, $this->requestedRoutes);
     foreach ($inter as $name => &$info) {
       if (!isset($info['page callback'])) {
-        $this->logger->warning("Route {route} is marked for override, but has no controller defined.", ['route' => $name]);
+        watchdog('lazy', "Route @route is marked for override, but has no controller defined.", [
+          '@route' => $name,
+        ], WATCHDOG_ERROR);
         continue;
       }
 

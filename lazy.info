@@ -16,4 +16,3 @@ php = 5.4
 core = 7.x
 
 dependencies[] = xautoload
-dependencies[] = psr3_watchdog

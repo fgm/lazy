@@ -20,6 +20,13 @@ namespace OSInet\Lazy\Controller;
  */
 class LiveController extends Controller {
   public function build() {
+    watchdog('lazy', 'Base @class/@method:<pre><code>@controller</code></pre>', [
+      '@class' => get_called_class(),
+      '@method' => __METHOD__,
+      '@controller' => var_export($this, true),
+    ], WATCHDOG_DEBUG);
+
+    $this->route->applyRequirements($this->builder);
     $ret = call_user_func_array($this->builder, $this->args);
     return $ret;
   }

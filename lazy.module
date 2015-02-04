@@ -27,7 +27,6 @@ use OSInet\Lazy\Variable;
 function lazy_controller_override($original_controller, Route $route) {
   $args = array_slice(func_get_args(), 2);
   $controller = Controller::create($route, $original_controller, $args);
-
   $ret = $controller->build($args);
   return $ret;
 }
@@ -40,26 +39,11 @@ function lazy_cron_queue_info() {
 }
 
 /**
- * PSR-3 Logger factory.
- *
- * @return \Psr\Log\LoggerInterface
- */
-function lazy_logger() {
-  $logger = &drupal_static(__FUNCTION__);
-  if (!isset($logger)) {
-    $logger = new Psr3Watchdog();
-    $logger->setType('lazy');
-  }
-
-  return $logger;
-}
-
-/**
  * Implements hook_menu_alter().
  */
 function lazy_menu_alter(&$default_routes) {
   $requested_routes = Variable::get('routes');
-  $router = new Router($default_routes, $requested_routes, lazy_logger());
+  $router = new Router($default_routes, $requested_routes);
   $actual_routes = $router->alteredRoutes();
 
   foreach ($actual_routes as $name => $info) {

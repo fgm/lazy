@@ -87,11 +87,6 @@ abstract class Controller implements Builder {
   protected $grace;
 
   /**
-   * @var \Psr\Log\LoggerInterface
-   */
-  protected $logger;
-
-  /**
    * The minimum number of seconds left before triggering a rebuild request.
    *
    * @var int
@@ -143,8 +138,6 @@ abstract class Controller implements Builder {
    *   The arguments passed to the original controller. May not be closures, nor
    *   passed by reference, as they will be serialized and used after the
    *   initial requesting page cycle.
-   * @param \Psr\Log\LoggerInterface $logger
-   *   A logger instance.
    * @param int $ttl
    *   The initial TTL, in seconds, for the content.
    * @param int $minimumTtl
@@ -156,11 +149,7 @@ abstract class Controller implements Builder {
    * @param int $did
    *   The domain id within which to build.
    */
-  public function __construct(Route $route, $builder, array $args = [], LoggerInterface $logger = NULL, $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
-    if (!isset($logger)) {
-      $this->logger = lazy_logger();
-    }
-
+  public function __construct(Route $route, $builder, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
     if (!isset($uid)) {
       $account = isset($GLOBALS['user']) ? $GLOBALS['user'] : drupal_anonymous_user();
       /** @noinspection PhpUnusedLocalVariableInspection */
@@ -194,7 +183,7 @@ abstract class Controller implements Builder {
    */
   protected function enqueueRebuild($data, $cid, $lock_name) {
     // Only CACHE_TEMPORARY items can be stale, so no check needed.
-    $this->logger->debug("Queueing rebuild for {cid}", ['cid' => $cid]);
+    watchdog('lazy', "Queueing rebuild for @cid", ['@cid' => $cid], WATCHDOG_DEBUG);
     $expire = $data->expire + $this->grace;
     $this->cacheSet($data->data, $cid, static::CACHE_BIN, $expire);
     $queue = $this->getQueue();
@@ -274,7 +263,14 @@ abstract class Controller implements Builder {
    *   - content
    */
   public function masquerade() {
+    watchdog('lazy', 'Base @class/@method:<pre><code>@controller</code></pre>', [
+      '@class' => get_called_class(),
+      '@method' => __METHOD__,
+      '@controller' => var_export($this, true),
+    ], WATCHDOG_DEBUG);
+
     $this->masqueradeStart();
+    $this->route->applyRequirements($this->builder);
     $ret = [
       $cid = $this->getCid(),
       call_user_func_array($this->builder, $this->args),
@@ -404,7 +400,8 @@ abstract class Controller implements Builder {
    * @return mixed
    */
   protected function renderFront($cid, $lock_name) {
-    $this->logger->debug("renderFront({cid})", ['cid' => $cid]);
+    watchdog('lazy', "renderFront(@cid)", ['@cid' => $cid], WATCHDOG_DEBUG);
+    $this->route->applyRequirements($this->builder);
     $ret = call_user_func($this->builder, $this->args, $this->route, get_class($this));
     $this->cacheSet($ret, $cid, static::CACHE_BIN, REQUEST_TIME + $this->ttl);
     lock_release($lock_name);
@@ -473,7 +470,6 @@ abstract class Controller implements Builder {
    * @param \OSInet\Lazy\Route $route
    * @param string $original_controller
    * @param array $args
-   * @param \Psr\Log\LoggerInterface $logger
    * @param int $ttl
    * @param int $minimumTtl
    * @param int $grace
@@ -482,7 +478,7 @@ abstract class Controller implements Builder {
    *
    * @return \OSInet\Lazy\Builder
    */
-  public static function create(Route $route, $original_controller, array $args = [], LoggerInterface $logger = NULL, $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+  public static function create(Route $route, $original_controller, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
     if (user_access('lazy_front_always')) {
       $class = 'LiveController';
     }
@@ -497,7 +493,7 @@ abstract class Controller implements Builder {
     }
 
     $class = __NAMESPACE__ . "\\$class";
-    $ret = new $class($route, $original_controller, $args, $logger, $ttl, $minimumTtl, $grace, $uid, $did);
+    $ret = new $class($route, $original_controller, $args, $ttl, $minimumTtl, $grace, $uid, $did);
     return $ret;
   }
 
@@ -507,7 +503,7 @@ abstract class Controller implements Builder {
   public function doWork() {
     list($cid, $content) = $this->masquerade();
     $this->cacheSet($content, $cid);
-    $this->logger->debug('Worker built {cid}', array('cid' => $this->getCid()));
+    watchdog('lazy', 'Worker built @cid', ['@cid' => $this->getCid()], WATCHDOG_DEBUG);
   }
 
   /**
@@ -533,11 +529,11 @@ abstract class Controller implements Builder {
    *
    */
   public static function work(Controller $a) {
-    // Logger might be a closure, so it is not stored when serializing.
-    if (!isset($a->logger)) {
-      $a->logger = lazy_logger();
-    }
-    $a->logger->debug("Controller::work({cid})", ['cid' => $a->getCid()]);
+    watchdog('lazy', "@class::work(@cid), controller: <pre>@controller</pre>", [
+      '@class' => get_class($a),
+      '@cid' => $a->getCid(),
+      '@controller' => print_r($a, TRUE),
+    ], WATCHDOG_DEBUG);
     $a->doWork();
   }
 }

@@ -29,6 +29,12 @@ class StaticController extends MissController {
    * @return mixed
    */
   protected function renderFront($cid, $lock_name) {
+    watchdog('lazy', 'Base @class/method:<pre><code>controller</code></pre>', [
+      '@class' => get_called_class(),
+      '@method' => __METHOD__,
+      '@controller' => var_export($this, true),
+    ], WATCHDOG_DEBUG);
+
     $ret = [
       '#markup' => t('Content is being updated, please wait for a few seconds.'),
     ];
@@ -37,7 +43,7 @@ class StaticController extends MissController {
     $lock_name = __METHOD__;
     while ($passes < static::MAX_PASSES) {
       if ($this->lockAcquire($lock_name)) {
-        $this->logger->debug("Queueing rebuild for lock {lock}", ['lock' => $lock_name]);
+        watchdog('lazy', "Queueing rebuild for lock @lock", ['@lock' => $lock_name], WATCHDOG_DEBUG);
         $queue = $this->getQueue();
         $queue->createItem($this);
         lock_release($lock_name);
