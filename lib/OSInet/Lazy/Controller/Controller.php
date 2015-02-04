@@ -14,7 +14,6 @@
 namespace OSInet\Lazy\Controller;
 
 use OSInet\Lazy\Route;
-use Psr\Log\LoggerInterface;
 
 /**
  * Class Controller brings asynchronism to the rendering of page contents.

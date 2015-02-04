@@ -82,10 +82,9 @@ class Route  {
 
     $info = $this->info;
     if (isset($info['file'])) {
-      $path = drupal_get_path('module', $info['module']);
-      if (isset($info['file path'])) {
-        $path .= '/' . $info['file path'];
-      }
+      $path = isset($info['file path'])
+        ? $info['file path']
+        : drupal_get_path('module', $info['module']);
 
       $path .= '/' . $info['file'];
 

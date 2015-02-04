@@ -24,8 +24,8 @@ use OSInet\Lazy\Variable;
  *
  * @return mixed|string
  */
-function lazy_controller_override($original_controller, Route $route) {
-  $args = array_slice(func_get_args(), 2);
+function lazy_controller_override($original_controller, Route $route, $route_name) {
+  $args = array_slice(func_get_args(), 3);
   $controller = Controller::create($route, $original_controller, $args);
   $ret = $controller->build($args);
   return $ret;
@@ -48,6 +48,19 @@ function lazy_menu_alter(&$default_routes) {
 
   foreach ($actual_routes as $name => $info) {
     $default_routes[$name] = $info;
+  }
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ *
+ * The module needs to come after any normal module.
+ */
+function lazy_module_implements_alter(&$implementations, $hook) {
+  if ($hook === 'menu_alter') {
+    $lazy = $implementations['lazy'];
+    unset($implementations['lazy']);
+    $implementations['lazy'] = $lazy;
   }
 }
 
