@@ -21,6 +21,7 @@ use OSInet\Lazy\Variable;
  *
  * @param string $original_controller
  * @param Route $route
+ * @param string $route_name
  *
  * @return mixed|string
  */
@@ -40,6 +41,8 @@ function lazy_cron_queue_info() {
 
 /**
  * Implements hook_menu_alter().
+ *
+ * Merge extra information for overridden routes with normal route information.
  */
 function lazy_menu_alter(&$default_routes) {
   $requested_routes = Variable::get('routes');

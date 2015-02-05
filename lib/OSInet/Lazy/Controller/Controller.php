@@ -111,6 +111,13 @@ abstract class Controller implements Builder {
   protected $savedUid;
 
   /**
+   * A raw $_GET['q'] preserved during a masquerade.
+   *
+   * @var string
+   */
+  protected $savedUnsafeQ;
+
+  /**
    * The initial cache TTL for this content.
    *
    * @var int
@@ -123,6 +130,14 @@ abstract class Controller implements Builder {
    * @var int
    */
   protected $uid;
+
+  /**
+   * @var string
+   *   The raw $_GET['q'] for which the controller is instantiated. Well-written
+   *   page callbacks should not depend on it, but in the real world, many do,
+   *   so it needs to be preserved for queued generation.
+   */
+  protected $unsafe_q;
 
   /**
    * Controller constructor
@@ -147,8 +162,10 @@ abstract class Controller implements Builder {
    *   The user id for which to build.
    * @param int $did
    *   The domain id within which to build.
+   * @param string $unsafe_q
+   *   The raw $_GET['q'] path.
    */
-  public function __construct(Route $route, $builder, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+  public function __construct(Route $route, $builder, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL, $unsafe_q = NULL) {
     if (!isset($uid)) {
       $account = isset($GLOBALS['user']) ? $GLOBALS['user'] : drupal_anonymous_user();
       /** @noinspection PhpUnusedLocalVariableInspection */
@@ -165,6 +182,11 @@ abstract class Controller implements Builder {
         /** @noinspection PhpUnusedLocalVariableInspection */
         $did = 0;
       }
+    }
+
+    if (!isset($unsafe_q)) {
+      /** @noinspection PhpUnusedLocalVariableInspection */
+      $unsafe_q = isset($_GET['q']) ? $_GET['q'] : '';
     }
 
     // __sleep() returns the names of the constructor parameters.
@@ -285,6 +307,7 @@ abstract class Controller implements Builder {
    * This implementation if not reentrant.
    *
    * @see Asynchronizer::masquerade()
+   * @see arg()
    *
    * @return void
    */
@@ -304,6 +327,10 @@ abstract class Controller implements Builder {
       $this->savedDid = 0;
       $GLOBALS['user'] = user_load($this->getUid());
     }
+
+    $this->savedUnsafeQ = $_GET['q'];
+    drupal_static_reset('arg');
+    $_GET['q'] = $this->unsafe_q;
   }
 
   /**
@@ -312,10 +339,14 @@ abstract class Controller implements Builder {
    * This implementation if not reentrant.
    *
    * @see Asynchronizer::masquerade()
+   * @see arg()
    *
    * @return void
    */
   protected function masqueradeStop() {
+    drupal_static_reset('arg');
+    $_GET['q'] = $this->savedUnsafeQ;
+
     if (isset($this->savedDid) && function_exists('domain_set_domain')) {
       domain_set_domain($this->savedDid);
     }
@@ -423,6 +454,7 @@ abstract class Controller implements Builder {
       'grace',
       'minimumTtl',
       'ttl',
+      'unsafe_q',
     );
 
     return $ret;
@@ -472,12 +504,13 @@ abstract class Controller implements Builder {
    * @param int $ttl
    * @param int $minimumTtl
    * @param int $grace
-   * @param null $uid
-   * @param null $did
+   * @param int $uid
+   * @param int $did
+   * @param string $unsafe_q
    *
-   * @return \OSInet\Lazy\Builder
+   * @return \OSInet\Lazy\Controller\Builder
    */
-  public static function create(Route $route, $original_controller, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+  public static function create(Route $route, $original_controller, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL, $unsafe_q = NULL) {
     if (user_access('lazy_front_always')) {
       $class = 'LiveController';
     }
@@ -492,7 +525,7 @@ abstract class Controller implements Builder {
     }
 
     $class = __NAMESPACE__ . "\\$class";
-    $ret = new $class($route, $original_controller, $args, $ttl, $minimumTtl, $grace, $uid, $did);
+    $ret = new $class($route, $original_controller, $args, $ttl, $minimumTtl, $grace, $uid, $did, $unsafe_q);
     return $ret;
   }
 
@@ -502,7 +535,7 @@ abstract class Controller implements Builder {
   public function doWork() {
     list($cid, $content) = $this->masquerade();
     $this->cacheSet($content, $cid);
-    watchdog('lazy', 'Worker built @cid', ['@cid' => $this->getCid()], WATCHDOG_DEBUG);
+    watchdog('lazy', 'Worker built <pre>@cid</pre>', ['@cid' => json_decode($this->getCid())], WATCHDOG_DEBUG);
   }
 
   /**
@@ -517,11 +550,11 @@ abstract class Controller implements Builder {
    *
    * @codeCoverageIgnore
    *
-   * @see \OSInet\Lazy\Controller::cronQueueInfo()
+   * @see \OSInet\Lazy\Controller\Controller::cronQueueInfo()
    *
-   * @see \OSInet\Lazy\Controller::__construct()
+   * @see \OSInet\Lazy\Controller\Controller::__construct()
    *
-   * @param \OSInet\Lazy\Controller $a
+   * @param \OSInet\Lazy\Controller\Controller $a
    *   The queued Controller instance.
    *
    * @return void
