@@ -23,6 +23,12 @@ class Route  {
   public $info;
 
   /**
+   * @var bool
+   *   May route controller die() ?
+   */
+  public $isMortal;
+
+  /**
    * @var string
    *   The route name, item key in hook_menu[_alter]
    */
@@ -46,10 +52,11 @@ class Route  {
    * @param int $cache
    * @param int $timeout
    */
-  public function __construct($name, array $info, $cache = DRUPAL_CACHE_PER_ROLE, $timeout = self::DEFAULT_TIMEOUT) {
-    $this->name = $name;
-    $this->info = $info;
+  public function __construct($name, array $info, $cache = DRUPAL_CACHE_PER_ROLE, $timeout = self::DEFAULT_TIMEOUT, $isMortal = FALSE) {
     $this->cache = $cache;
+    $this->info = $info;
+    $this->isMortal = $isMortal;
+    $this->name = $name;
     $this->timeout = $timeout;
   }
 
@@ -62,14 +69,29 @@ class Route  {
       ? $alterations['timeout']
       : static::DEFAULT_TIMEOUT;
 
-    return new static($name, $info, $cache, $timeout);
+    $isMortal = isset($alterations['isMortal'])
+      ? $alterations['isMortal']
+      : FALSE;
+
+    return new static($name, $info, $cache, $timeout, $isMortal);
+  }
+
+  /**
+   * @return string
+   *   Runner strategy.
+   *
+   * @see \OSInet\Lazy\Runner\Base
+   */
+  public function getStrategy() {
+    $ret = $this->isMortal ? 'forking' : 'simple';
+    return $ret;
   }
 
   /**
    * @param callable $builder
    */
   public function applyRequirements($builder) {
-    watchdog('lazy', 'Route @class/@method:<pre><code>@controller</code> for @builder</pre>', [
+    0 && watchdog('lazy', 'Route @class/@method:<pre><code>@controller</code> for @builder</pre>', [
       '@class' => get_called_class(),
       '@method' => __METHOD__,
       '@controller' => var_export($this, true),

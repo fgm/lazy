@@ -12,6 +12,7 @@ description = A lazy page generation module
 package = Performance and scalability
 project status url = http://features.osinet.eu/fserver
 
+; module uses short array syntax and callable hint.
 php = 5.4
 core = 7.x
 

@@ -14,6 +14,7 @@
 namespace OSInet\Lazy\Controller;
 
 use OSInet\Lazy\Route;
+use OSInet\Lazy\Runner\Base as Runner;
 
 /**
  * Class Controller brings asynchronism to the rendering of page contents.
@@ -231,7 +232,8 @@ abstract class Controller implements Builder {
       $this->did,
     ];
 
-    return json_encode($cid);
+    $ret = json_encode($cid);
+    return $ret;
   }
 
   /**
@@ -292,10 +294,21 @@ abstract class Controller implements Builder {
 
     $this->masqueradeStart();
     $this->route->applyRequirements($this->builder);
-    $ret = [
-      $cid = $this->getCid(),
-      call_user_func_array($this->builder, $this->args),
-    ];
+
+    $cid = $this->getCid();
+
+    /* Run strategy can be chosen based on route needs:
+     * - normal controllers will run with the "simple" runner
+     * - controllers which output data and/or die()/exit() need the "forking" runner
+     *
+     * TODO However, at this point 'forking' is not complete.
+     */
+    $runner = Runner::create($this->route->getStrategy());
+    $runner->run($this->builder, $this->args);
+    $output = $runner->getResult();
+
+    $ret = [ $cid, $output ];
+
     $this->masqueradeStop();
 
     return $ret;

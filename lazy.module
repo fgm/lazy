@@ -45,6 +45,11 @@ function lazy_cron_queue_info() {
  * Merge extra information for overridden routes with normal route information.
  */
 function lazy_menu_alter(&$default_routes) {
+  // Disable caching during install/update/maintenance.
+  if (defined('MAINTENANCE_MODE')) {
+    return;
+  }
+
   $requested_routes = Variable::get('routes');
   $router = new Router($default_routes, $requested_routes);
   $actual_routes = $router->alteredRoutes();
