@@ -37,6 +37,15 @@ function lazy_controller_override($original_controller, Route $route, $route_nam
  */
 function lazy_cron_queue_info() {
   return Controller::cronQueueInfo();
+    $ret = Asynchronizer::queueInfo();
+    return $ret;
+}
+
+/**
+ * Implements hook_flush_caches().
+ */
+function lazy_flush_caches() {
+  return ['cache_lazy'];
 }
 
 /**

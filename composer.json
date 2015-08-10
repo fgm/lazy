@@ -2,7 +2,8 @@
     "name": "osinet/lazy",
     "description": "Lazy module",
     "require": {
-        "pda/pheanstalk": "~3.0@dev"
+        "pda/pheanstalk": "~3.0@dev",
+        "phpunit/phpunit": "~3"
     },
     "license": "GPL-2.0+",
     "authors": [

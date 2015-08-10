@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+  backupGlobals="true"
+  backupStaticAttributes="false"
+  bootstrap="src/Tests/boot.php"
+  cacheTokens="true"
+  colors="true"
+  convertErrorsToExceptions="true"
+  convertNoticesToExceptions="true"
+  convertWarningsToExceptions="true"
+  forceCoversAnnotation="false"
+  mapTestClassNameToCoveredClassName="true"
+  printerClass="PHPUnit_TextUI_ResultPrinter"
+  processIsolation="false"
+  stopOnError="false"
+  stopOnFailure="false"
+  stopOnIncomplete="false"
+  stopOnSkipped="false"
+  strict="true"
+  testSuiteLoaderClass="PHPUnit_Runner_StandardTestSuiteLoader"
+  verbose="true">
+
+  <filter>
+    <whitelist>
+      <directory suffix=".inc">.</directory>
+      <directory suffix=".install">.</directory>
+      <directory suffix=".module">.</directory>
+      <directory suffix=".php">.</directory>
+      <exclude>
+        <directory>vendor</directory>
+        <directory>src/Tests</directory>
+      </exclude>
+    </whitelist>
+  </filter>
+
+  <testsuites>
+    <testsuite name="Base Test Suite">
+      <directory>src/Tests</directory>
+      </testsuite>
+    </testsuites>
+  </phpunit>
+
