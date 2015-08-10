@@ -2,7 +2,7 @@
 <phpunit
   backupGlobals="true"
   backupStaticAttributes="false"
-  bootstrap="src/Tests/boot.php"
+  bootstrap="src/UnitTests/boot.php"
   cacheTokens="true"
   colors="true"
   convertErrorsToExceptions="true"
@@ -28,14 +28,14 @@
       <directory suffix=".php">.</directory>
       <exclude>
         <directory>vendor</directory>
-        <directory>src/Tests</directory>
+        <directory>src/UnitTests</directory>
       </exclude>
     </whitelist>
   </filter>
 
   <testsuites>
     <testsuite name="Base Test Suite">
-      <directory>src/Tests</directory>
+      <directory>src/UnitTests</directory>
       </testsuite>
     </testsuites>
   </phpunit>

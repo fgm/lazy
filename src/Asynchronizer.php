@@ -54,6 +54,20 @@ class Asynchronizer {
   protected $did;
 
   /**
+   * A callable providing a way to get the domain ID with or without Domain.
+   *
+   * @var \Closure|string
+   */
+  protected $domainGetter;
+
+  /**
+   * A callable providing a way to set the domain ID with or without Domain.
+   *
+   * @var \Closure|string
+   */
+  protected $domainSetter;
+
+  /**
    * The number of grace seconds added to the TTL of an entry being rebuilt.
    *
    * @var int
@@ -123,8 +137,12 @@ class Asynchronizer {
       /** @noinspection PhpUnusedLocalVariableInspection */
       $uid = $account->uid;
     }
+
+    $this->domainGetter = $this->getDomainGetter();
+    $this->domainSetter = $this->getDomainSetter();
+
     if (!isset($did)) {
-      $domain = domain_get_domain();
+      $domain = $this->getDomain();
       /** @noinspection PhpUnusedLocalVariableInspection */
       $did = $domain['domain_id'];
     }
@@ -133,6 +151,37 @@ class Asynchronizer {
     foreach ($this->__sleep() as $name) {
       $this->$name = $$name;
     }
+  }
+
+  /**
+   * Provide a function returning a domain id.
+   *
+   * This works whether Domain is installed or not.
+   *
+   * @return \Closure|string
+   *   The callable used to get the domain id.
+   */
+  protected function getDomainGetter() {
+    $result = function_exists('domain_get_domain')
+      ? 'domain_get_domain'
+      : function () { return ['domain_id' => 0]; };
+    return $result;
+  }
+
+  /**
+   * Provide a function (pretending to) set the domain id.
+   *
+   * This works whether Domain is installed or not.
+   *
+   * @return \Closure|string
+   *   The callable used to (pretend to) set the domain id.
+   */
+  protected function getDomainSetter() {
+    $that = $this;
+    $result = function_exists('domain_set_domain')
+      ? 'domain_set_domain'
+      : function ($did) use($that) { $that->did = $did; };
+    return $result;
   }
 
   /**
@@ -180,6 +229,18 @@ class Asynchronizer {
    */
   public function getDid() {
     return $this->did;
+  }
+
+  /**
+   * Return the domain id.
+   *
+   * @return int
+   *   The domain id, 0 if Domain is not installed.
+   */
+  protected function getDomain() {
+    $getter = $this->domainGetter;
+    $result = $getter($this->getDid());
+    return $result;
   }
 
   /**
@@ -244,11 +305,11 @@ class Asynchronizer {
     $saved_account = $GLOBALS['user'];
     $this->savedUid = empty($saved_account->uid) ? 0 : $saved_account->uid;
 
-    $saved_domain = domain_get_domain();
+    $saved_domain = $this->getDomain();
     $this->savedDid = isset($saved_domain->domain_id) ? $saved_domain->domain_id : NULL;
 
     $GLOBALS['user'] = user_load($this->getUid());
-    domain_set_domain($this->did);
+    $this->setDomain($this->did);
   }
 
   /**
@@ -262,7 +323,7 @@ class Asynchronizer {
    */
   protected function masqueradeStop() {
     if (isset($this->savedDid)) {
-      domain_set_domain($this->savedDid);
+      $this->setDomain($this->savedDid);
     }
     $GLOBALS['user'] = user_load($this->savedUid);
   }
@@ -450,6 +511,17 @@ class Asynchronizer {
     $content = $this->masquerade($this->builder);
     $this->cacheSet($content);
     $this->log(WATCHDOG_DEBUG, 'Worker built @cid', array('@cid' => $this->getCid()));
+  }
+
+  /**
+   * Set the domain id or pretend to if Domain is not installed.
+   *
+   * @param int $did
+   *   The id of the domain to save.
+   */
+  protected function setDomain($did) {
+    $setter = $this->domainSetter;
+    $setter($did);
   }
 
   /**

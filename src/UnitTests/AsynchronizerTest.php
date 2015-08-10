@@ -1,11 +1,11 @@
 <?php
 /**
  * @file
- * AsynchronizerTest.php
+ * Contains AsynchronizerTest. Use with PHPUnit, not Simpletest.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
- * @copyright (c) 2014 Ouest Systèmes Informatiques (OSInet).
+ * @copyright (c) 2014-2015 Ouest Systèmes Informatiques (OSInet).
  *
  * @license General Public License version 2 or later
  */
@@ -50,8 +50,8 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
   public function testGetCidDefault() {
     $builder = "somebuilder";
-    // boot.php defaults to regions_france3 : {domain}.id is 105 for this site.
-    $expected_did = 105;
+    // boot.php defaults without Domain: {domain}.id is 0 for this site.
+    $expected_did = 0;
     $expected_uid = 0;
 
     $expected_cid = "somebuilder:$expected_did:$expected_uid";

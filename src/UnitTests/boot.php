@@ -10,10 +10,10 @@
  * @license General Public License version 2 or later
  */
 
-define('DRUPAL_ROOT', realpath(__DIR__ . '/../../../../../../../../..'));
+define('DRUPAL_ROOT', realpath(__DIR__ . '/../../../../../../..'));
 
 $_SERVER = array(
-  'HTTP_HOST' => 'regions_france3',
+  'HTTP_HOST' => 'localhost',
   'REMOTE_ADDR' => '127.0.0.1',
   'REQUEST_TIME' => time(),
   'SCRIPT_NAME' => __FILE__,
@@ -25,4 +25,4 @@ require_once 'includes/database/database.inc';
 
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
-require_once __DIR__ . '/../../../../Asynchronizer.php';
+require_once __DIR__ . '/../Asynchronizer.php';
