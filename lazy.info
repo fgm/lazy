@@ -8,8 +8,8 @@
 ; @license General Public License version 2 or later
 
 name = Lazy
-description = A lazy page generation module
-package = Performance and scalability
+description = A lazy page and block generation module
+package = "Performance and scalability"
 project status url = http://features.osinet.eu/fserver
 
 ; module uses short array syntax and callable hint.

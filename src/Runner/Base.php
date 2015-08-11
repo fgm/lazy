@@ -12,19 +12,27 @@
 
 namespace OSInet\Lazy\Runner;
 
-
+/**
+ * Class Base is the base implementation for runners.
+ *
+ * @package OSInet\Lazy\Runner
+ */
 abstract class Base {
-
   /**
+   * A render array.
+   *
    * @var array
-   *   A render array.
    */
   protected $result;
 
   /**
-   * @param $strategy
+   * Runner factory method.
+   *
+   * @param string $strategy
+   *   The name of a runner strategy, based on user access.
    *
    * @return \OSInet\Lazy\Runner\Base
+   *   A runner instance.
    */
   public static function create($strategy) {
     $class = __NAMESPACE__ . '\\' . ucfirst($strategy);
@@ -32,6 +40,8 @@ abstract class Base {
   }
 
   /**
+   * Return the result of a run() execution.
+   *
    * @return array
    *   A render array.
    */
@@ -40,10 +50,16 @@ abstract class Base {
   }
 
   /**
-   * @param callable $builder
-   * @param array $args
+   * Run a builder with arguments.
    *
-   * @return void
+   * Unlike render(), Base::run() implementations store their result in
+   * $this->result.
+   *
+   * @param callable $builder
+   *   The builder instance.
+   * @param array $args
+   *   The builder arguments.
    */
   public abstract function run(callable $builder, array $args = []);
+
 }

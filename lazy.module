@@ -11,6 +11,7 @@
  */
 
 use Drupal\xautoload\Adapter\LocalDirectoryAdapter;
+use OSInet\Lazy\Asynchronizer;
 use OSInet\Lazy\Controller\Controller;
 use OSInet\Lazy\Route;
 use OSInet\Lazy\Router;
@@ -36,9 +37,8 @@ function lazy_controller_override($original_controller, Route $route, $route_nam
  * Implements hook_cron_queue_info().
  */
 function lazy_cron_queue_info() {
-  return Controller::cronQueueInfo();
-    $ret = Asynchronizer::queueInfo();
-    return $ret;
+  $result = Controller::cronQueueInfo() + Asynchronizer::queueInfo();
+  return $result;
 }
 
 /**
@@ -92,5 +92,5 @@ function lazy_permission() {
  * Implements hook_xautoload().
  */
 function lazy_xautoload(LocalDirectoryAdapter $adapter) {
-  $adapter->absolute()->addPsr4('OSInet\Lazy\\', __DIR__ . '/lib/OSInet/Lazy');
+  $adapter->absolute()->addPsr4('OSInet\Lazy\\', __DIR__ . '/src');
 }

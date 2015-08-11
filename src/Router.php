@@ -15,16 +15,35 @@ namespace OSInet\Lazy;
 
 use OSInet\Lazy\Controller\Controller;
 
+/**
+ * Class Router builds Route objects from the hook_menu[_alter]() system.
+ *
+ * @package OSInet\Lazy
+ */
 class Router {
   public $defaultRoutes;
 
   public $requestedRoutes;
 
+  /**
+   * Constructor.
+   *
+   * @param array $routes
+   *   The available routes in the menu system.
+   * @param array $requested
+   *   The routes specified as lazy in settings.php.
+   */
   public function __construct(array &$routes, array $requested) {
     $this->defaultRoutes = $routes;
     $this->requestedRoutes = $requested;
   }
 
+  /**
+   * The routes as modified by hook_menu_alter().
+   *
+   * @return array
+   *   A routes hash.
+   */
   public function alteredRoutes() {
     $inter = array_intersect_key($this->defaultRoutes, $this->requestedRoutes);
     foreach ($inter as $name => &$info) {
@@ -51,4 +70,5 @@ class Router {
 
     return $inter;
   }
+
 }

@@ -19,9 +19,9 @@
  *
  * @see https://www.drupal.org/node/2078587
  */
-require_once __DIR__ . '/lib/OSInet/Lazy/Controller/Builder.php';
-require_once __DIR__ . '/lib/OSInet/Lazy/Controller/Controller.php';
-require_once __DIR__ . '/lib/OSInet/Lazy/Variable.php';
+require_once __DIR__ . '/src/Controller/Builder.php';
+require_once __DIR__ . '/src/Controller/Controller.php';
+require_once __DIR__ . '/src/Variable.php';
 
 use OSInet\Lazy\Controller\Controller;
 use OSInet\Lazy\Variable;

@@ -13,9 +13,11 @@
 namespace OSInet\Lazy\Controller;
 
 /**
- * Class MissController minimizes front building, but still permits it, by only
- * performing front building in case of a cache miss. It is the default strategy
- * in earlier versions and other packages like Asynchronizer.
+ * Class MissController minimizes front building, but still permits it.
+ *
+ * To do so, it only performs front building in case of a cache miss. It is the
+ * default strategy in earlier versions and other packages like the original
+ * Asynchronizer.
  *
  * @package OSInet\Lazy
  */
@@ -67,4 +69,5 @@ class MissController extends Controller {
 
     return $ret;
   }
+
 }

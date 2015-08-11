@@ -12,54 +12,82 @@
 
 namespace OSInet\Lazy;
 
-
-class Route  {
+/**
+ * Class Route represents the combination of a hook_menu() item and context.
+ *
+ * @package OSInet\Lazy
+ */
+class Route {
   const DEFAULT_TIMEOUT = 30;
 
   /**
+   * The hook_menu[_alter] normal information.
+   *
    * @var array
-   *   hook_menu[_alter] normal information
    */
   public $info;
 
   /**
+   * May route controller die() ?
+   *
    * @var bool
-   *   May route controller die() ?
    */
   public $isMortal;
 
   /**
+   * The route name, item key in hook_menu[_alter].
+   *
    * @var string
-   *   The route name, item key in hook_menu[_alter]
    */
   public $name;
 
   /**
+   * The caching policy for route, is a DRUPAL*CACHE* constants.
+   *
    * @var int
-   *   The caching policy for route, is a DRUPAL*CACHE* constants.
    */
   public $cache;
 
   /**
+   * The caching TTL for the route, in seconds.
+   *
    * @var int
-   *   The caching TTL for the route, in seconds.
    */
   public $timeout;
 
   /**
+   * Constructor.
+   *
    * @param string $name
+   *   The route name.
    * @param array $info
+   *   The hook_menu() info array for the route.
    * @param int $cache
+   *   A Drupal DRUPAL_*CACHE* constant.
    * @param int $timeout
+   *   The timeout allowed to build the route.
    */
-  public function __construct($name, array $info, $cache = DRUPAL_CACHE_PER_ROLE, $timeout = self::DEFAULT_TIMEOUT, $isMortal = FALSE) {
+  public function __construct($name, array $info, $cache = DRUPAL_CACHE_PER_ROLE, $timeout = self::DEFAULT_TIMEOUT, $is_mortal = FALSE) {
     $this->cache = $cache;
     $this->info = $info;
-    $this->isMortal = $isMortal;
+    $this->isMortal = $is_mortal;
     $this->name = $name;
     $this->timeout = $timeout;
   }
 
+  /**
+   * The route factory method.
+   *
+   * @param string $name
+   *   The route name.
+   * @param array $info
+   *   The hook_menu() info array for the route.
+   * @param array $alterations
+   *   A hash of route alterations defined by the Router instance.
+   *
+   * @return static
+   *   The created instance.
+   */
   public static function create($name, array $info, array $alterations = []) {
     $cache = isset($alterations['cache'])
       ? $alterations['cache']
@@ -69,14 +97,16 @@ class Route  {
       ? $alterations['timeout']
       : static::DEFAULT_TIMEOUT;
 
-    $isMortal = isset($alterations['isMortal'])
+    $is_mortal = isset($alterations['isMortal'])
       ? $alterations['isMortal']
       : FALSE;
 
-    return new static($name, $info, $cache, $timeout, $isMortal);
+    return new static($name, $info, $cache, $timeout, $is_mortal);
   }
 
   /**
+   * Get the route generation strategy.
+   *
    * @return string
    *   Runner strategy.
    *
@@ -88,13 +118,16 @@ class Route  {
   }
 
   /**
+   * Apply requirements to a route before building its data.
+   *
    * @param callable $builder
+   *   The builder. If not in scope attempt to load it from the route file path.
    */
-  public function applyRequirements($builder) {
+  public function applyRequirements(callable $builder) {
     0 && watchdog('lazy', 'Route @class/@method:<pre><code>@controller</code> for @builder</pre>', [
       '@class' => get_called_class(),
       '@method' => __METHOD__,
-      '@controller' => var_export($this, true),
+      '@controller' => var_export($this, TRUE),
       '@builder' => $builder,
     ], WATCHDOG_DEBUG);
 
@@ -110,7 +143,7 @@ class Route  {
 
       $path .= '/' . $info['file'];
 
-      // TODO : use include_once and trap warnings instead of causing a compile error.
+      // TODO : use include_once and trap warnings instead of causing an error.
       require_once $path;
 
       if (!is_callable($builder)) {
@@ -120,4 +153,5 @@ class Route  {
       }
     }
   }
+
 }

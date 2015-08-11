@@ -13,12 +13,15 @@
  * @license General Public License version 2 or later
  */
 
+namespace OSInet\Lazy;
+
+
 /**
  * Class Asynchronizer brings asynchronism to the rendering of blocks.
  */
 class Asynchronizer {
   /**
-   * The cache bin used by this class
+   * The cache bin used by this class.
    */
   const BIN = 'cache_lazy_blocks';
 
@@ -114,7 +117,23 @@ class Asynchronizer {
   protected $uid;
 
   /**
-   * Asynchronizer constructor
+   * Convert camelCaseName to camel_case_name.
+   *
+   * @param string $input
+   *   The camelCase string to convert.
+   *
+   * @return string
+   *   The decamelized string.
+   */
+  protected static function decamelize($input) {
+    $underscored = preg_replace('/[A-Z]/', '_$0', $input);
+    $lower_cased = strtolower($underscored);
+    $result = ltrim($lower_cased, '_');
+    return $result;
+  }
+
+  /**
+   * Asynchronizer constructor.
    *
    * @param string $builder
    *   The name of the function used to perform a rebuild. Can be a plain
@@ -122,7 +141,7 @@ class Asynchronizer {
    *   serialized to the queue.
    * @param int $ttl
    *   The initial TTL, in seconds, for the content.
-   * @param int $minimumTtl
+   * @param int $minimum_ttl
    *   The minimum TTL, in seconds, below which a rebuild is triggered.
    * @param int $grace
    *   The TTL grace, in seconds, to be added when a rebuild is triggered.
@@ -131,10 +150,9 @@ class Asynchronizer {
    * @param int $did
    *   The domain id within which to build.
    */
-  public function __construct($builder, $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+  public function __construct($builder, $ttl = 3600, $minimum_ttl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
     if (!isset($uid)) {
       $account = isset($GLOBALS['user']) ? $GLOBALS['user'] : drupal_anonymous_user();
-      /** @noinspection PhpUnusedLocalVariableInspection */
       $uid = $account->uid;
     }
 
@@ -143,13 +161,13 @@ class Asynchronizer {
 
     if (!isset($did)) {
       $domain = $this->getDomain();
-      /** @noinspection PhpUnusedLocalVariableInspection */
       $did = $domain['domain_id'];
     }
 
     // __sleep() returns the names of the constructor parameters.
     foreach ($this->__sleep() as $name) {
-      $this->$name = $$name;
+      $uname = $this->decamelize($name);
+      $this->$name = $$uname;
     }
   }
 
@@ -164,7 +182,9 @@ class Asynchronizer {
   protected function getDomainGetter() {
     $result = function_exists('domain_get_domain')
       ? 'domain_get_domain'
-      : function () { return ['domain_id' => 0]; };
+      : function () {
+        return ['domain_id' => 0];
+      };
     return $result;
   }
 
@@ -180,16 +200,21 @@ class Asynchronizer {
     $that = $this;
     $result = function_exists('domain_set_domain')
       ? 'domain_set_domain'
-      : function ($did) use($that) { $that->did = $did; };
+      : function ($did) use($that) {
+        $that->did = $did;
+      };
     return $result;
   }
 
   /**
    * Push a rebuild request to the queue.
    *
-   * @param $data
-   * @param $cid
-   * @param $lock_name
+   * @param mixed $data
+   *   Data representing a block to rebuild.
+   * @param string $cid
+   *   The cache id under which to store the queued data.
+   * @param string $lock_name
+   *   The Lazy lock name.
    */
   protected function enqueueRebuild($data, $cid, $lock_name) {
     // Only CACHE_TEMPORARY items can be stale, so no check needed.
@@ -209,6 +234,7 @@ class Asynchronizer {
    * roles, or language.
    *
    * @return string
+   *   The cached id for this instance.
    */
   public function getCid() {
     if (is_array($this->builder)) {
@@ -226,6 +252,7 @@ class Asynchronizer {
    * Getter for $did.
    *
    * @return int
+   *   The Domain id for this instance, 0 if Domain is not enabled.
    */
   public function getDid() {
     return $this->did;
@@ -247,6 +274,7 @@ class Asynchronizer {
    * Getter for $uid.
    *
    * @return int
+   *   The user id for this instance.
    */
   public function getUid() {
     return $this->uid;
@@ -256,8 +284,10 @@ class Asynchronizer {
    * Drupal cache items are stale if they are not permanent and expire "soon".
    *
    * @param object $cache_item
+   *   A cache object in cache_get() format.
    *
    * @return bool
+   *   Is a non permanent cache item valid but stale ?
    */
   public function isStale($cache_item) {
     $ret = !empty($cache_item->expire)
@@ -270,11 +300,13 @@ class Asynchronizer {
    *
    * Caveat: this implementation if not reentrant.
    *
-   * @param string $builder
+   * @param callable $builder
+   *   The builder used to build this block.
    *
    * @return mixed
+   *   The results of the builder.
    */
-  public function masquerade($builder) {
+  public function masquerade(callable $builder) {
     $this->masqueradeStart();
 
     if (is_array($builder)) {
@@ -298,8 +330,6 @@ class Asynchronizer {
    * This implementation if not reentrant.
    *
    * @see Asynchronizer::masquerade()
-   *
-   * @return void
    */
   protected function masqueradeStart() {
     $saved_account = $GLOBALS['user'];
@@ -318,8 +348,6 @@ class Asynchronizer {
    * This implementation if not reentrant.
    *
    * @see Asynchronizer::masquerade()
-   *
-   * @return void
    */
   protected function masqueradeStop() {
     if (isset($this->savedDid)) {
@@ -334,21 +362,27 @@ class Asynchronizer {
    * @see lazy_cron_queue_info()
    *
    * @return array
+   *   A queue info array, as per hook_cron_queue_info().
    */
   public static function queueInfo() {
-    $ret = array(
-      static::QUEUE_NAME => array(
-      'worker callback' => array('Asynchronizer', 'work'),
+    $ret = [
+      static::QUEUE_NAME => [
+      'worker callback' => [__CLASS__, 'work'],
       'time' => 30,
       'skip on cron' => TRUE,
-    ));
+      ]
+    ];
     return $ret;
   }
 
   /**
    * A facade for core function lock_acquire().
    *
-   * @param $lock_name lock name
+   * @param string $lock_name
+   *   The Lazy lock name.
+   *
+   * @return bool
+   *   As per lock_acquire().
    */
   protected function lockAcquire($lock_name) {
     return lock_acquire($lock_name, static::LOCK_TIMEOUT);
@@ -357,7 +391,8 @@ class Asynchronizer {
   /**
    * An adapter for core function lock_wait().
    *
-   * @param $lock_name
+   * @param string $lock_name
+   *   The Lazy lock name.
    */
   protected function lockWait($lock_name) {
     lock_wait($lock_name);
@@ -366,7 +401,8 @@ class Asynchronizer {
   /**
    * An adapter for core function lock_release().
    *
-   * @param $lock_name
+   * @param string $lock_name
+   *   The Lazy lock name.
    */
   protected function lockRelease($lock_name) {
     lock_release($lock_name);
@@ -423,10 +459,15 @@ class Asynchronizer {
   }
 
   /**
-   * @param $cid
-   * @param $lock_name
+   * Render content synchronously within the front-end built process.
+   *
+   * @param string $cid
+   *   The id under which to cache the rendered block.
+   * @param string $lock_name
+   *   The Lazy lock name.
    *
    * @return mixed
+   *   The rendered block.
    */
   protected function renderFront($cid, $lock_name) {
     if (is_array($this->builder)) {
@@ -449,6 +490,7 @@ class Asynchronizer {
    * Only serialize the properties needed by the constructor.
    *
    * @return array
+   *   The keys to include in serialized versions of the object.
    */
   public function __sleep() {
     $ret = array(
@@ -468,20 +510,27 @@ class Asynchronizer {
    *
    * Untestable: returns nothing and only invokes procedural code.
    *
-   * @codeCoverageIgnore
-   *
    * @param int $level
+   *   The event severity level, a WATCHDOG_* constant.
    * @param string $message
+   *   The message template.
    * @param array $args
+   *   The template arguments.
+   *
+   * @codeCoverageIgnore
    */
-  public function log($level, $message, $args) {
+  public function log($level, $message, array $args = []) {
     watchdog(static::QUEUE_NAME, $message, $args, $level);
   }
 
   /**
    * A facade for core cache_get() function.
    *
-   * @param $cid
+   * @param string $cid
+   *   The cache id for which to retrieve the data.
+   *
+   * @return object|FALSE
+   *   As per cache_get().
    */
   protected function cacheGet($cid) {
     return cache_get($cid, static::BIN);
@@ -492,9 +541,16 @@ class Asynchronizer {
    *
    * Untestable: returns nothing and only invokes procedural code.
    *
-   * @codeCoverageIgnore
+   * @param mixed $content
+   *   The data to cache.
+   * @param string $cid
+   *   The under which to cache the data.
+   * @param string $bin
+   *   The name of the bin in which to cache the data.
+   * @param int $expire
+   *   The cached data expiration timestamp.
    *
-   * @param mixed $level
+   * @codeCoverageIgnore
    */
   protected function cacheSet($content, $cid = NULL, $bin = NULL, $expire = NULL) {
     $cid = (isset($cid) ? $cid : $this->getCid());
@@ -505,6 +561,8 @@ class Asynchronizer {
   }
 
   /**
+   * Perform a masqueraded render.
+   *
    * @see \Asynchronizer::work()
    */
   public function doWork() {
@@ -534,17 +592,14 @@ class Asynchronizer {
    *
    * Since the method is static and returns nothing, it cannot be tested.
    *
+   * @param Asynchronizer $a
+   *   The queued Asynchronizer instance.
+   *
    * @codeCoverageIgnore
    *
    * @see Asynchronizer::cronQueueInfo()
    *
    * @see Asynchronizer::__construct()
-   *
-   * @param Asynchronizer $a
-   *   The queued Asynchronizer instance.
-   *
-   * @return void
-   *
    */
   public static function work(Asynchronizer $a) {
     $a->doWork();

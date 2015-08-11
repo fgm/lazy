@@ -12,15 +12,17 @@
 
 namespace OSInet\Lazy\Runner;
 
-
+/**
+ * Class Simple is a simple runner : like core it builds content synchronously.
+ *
+ * @package OSInet\Lazy\Runner
+ */
 class Simple extends Base {
   /**
-   * @param callable $builder
-   * @param array $args
-   *
-   * @return null
+   * {@inheritdoc}
    */
   public function run(callable $builder, array $args = []) {
     $this->result = call_user_func_array($builder, $args);
   }
+
 }

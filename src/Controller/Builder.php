@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Builder.php
+ * Contains Builder.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -12,10 +12,18 @@
 
 namespace OSInet\Lazy\Controller;
 
-
-interface Builder {
+/**
+ * Interface Builder.
+ *
+ * @package OSInet\Lazy\Controller
+ */
+interface BuilderInterface {
   /**
+   * Build a render array..
+   *
    * @return array
+   *   A render array.
    */
   public function build();
+
 }

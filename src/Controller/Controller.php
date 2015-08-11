@@ -1,8 +1,10 @@
 <?php
 /**
  * @file
- * Lazy\Controller allows building of page contents to be done lazily,
- * avoiding front-end load as much as possible.
+ * Contains Lazy\Controller.
+ *
+ * Lazy controllers allow building of page contents to be done lazily, avoiding
+ * front-end load as much as possible.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -21,9 +23,9 @@ use OSInet\Lazy\Runner\Base as Runner;
  *
  * @package OSInet\Lazy
  */
-abstract class Controller implements Builder {
+abstract class Controller implements BuilderInterface {
   /**
-   * The cache bin used by this class
+   * The cache bin used by this class.
    */
   const CACHE_BIN = 'cache_lazy';
 
@@ -47,7 +49,7 @@ abstract class Controller implements Builder {
    *
    * @var string
    */
-  const QUEUE_NAME = 'lazy';
+  const QUEUE_NAME = 'lazy_content';
 
   /**
    * The maximum execution time for deferred jobs.
@@ -55,20 +57,23 @@ abstract class Controller implements Builder {
   const EXECUTE_TIMEOUT = 30;
 
   /**
+   * The arguments passed to the controller.
+   *
    * @var array
-   *   The arguments passed to the controller.
    */
   public $args;
 
   /**
+   * The controller (page callback) name.
+   *
    * @var string
-   *  The controller (page callback) name.
    */
   public $builder;
 
   /**
+   * The route triggering this action.
+   *
    * @var \OSInet\Lazy\Route
-   *   The route triggering this action.
    */
   public $route;
 
@@ -133,15 +138,17 @@ abstract class Controller implements Builder {
   protected $uid;
 
   /**
+   * The raw $_GET['q'] for which the controller is instantiated.
+   *
+   * Well-written page callbacks should not depend on it, but in the real world,
+   * many do, so it needs to be preserved for queued generation.
+   *
    * @var string
-   *   The raw $_GET['q'] for which the controller is instantiated. Well-written
-   *   page callbacks should not depend on it, but in the real world, many do,
-   *   so it needs to be preserved for queued generation.
    */
-  protected $unsafe_q;
+  protected $unsafeQ;
 
   /**
-   * Controller constructor
+   * Controller constructor.
    *
    * @param \OSInet\Lazy\Route $route
    *   The route on which the contents is being built.
@@ -155,7 +162,7 @@ abstract class Controller implements Builder {
    *   initial requesting page cycle.
    * @param int $ttl
    *   The initial TTL, in seconds, for the content.
-   * @param int $minimumTtl
+   * @param int $minimum_ttl
    *   The minimum TTL, in seconds, below which a rebuild is triggered.
    * @param int $grace
    *   The TTL grace, in seconds, to be added when a rebuild is triggered.
@@ -166,27 +173,23 @@ abstract class Controller implements Builder {
    * @param string $unsafe_q
    *   The raw $_GET['q'] path.
    */
-  public function __construct(Route $route, $builder, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL, $unsafe_q = NULL) {
+  public function __construct(Route $route, $builder, array $args = [], $ttl = 3600, $minimum_ttl = 300, $grace = 3600, $uid = NULL, $did = NULL, $unsafe_q = NULL) {
     if (!isset($uid)) {
       $account = isset($GLOBALS['user']) ? $GLOBALS['user'] : drupal_anonymous_user();
-      /** @noinspection PhpUnusedLocalVariableInspection */
       $uid = $account->uid;
     }
 
     if (!isset($did)) {
       if (function_exists('domain_get_domain')) {
         $domain = domain_get_domain();
-        /** @noinspection PhpUnusedLocalVariableInspection */
         $did = $domain['domain_id'];
       }
       else {
-        /** @noinspection PhpUnusedLocalVariableInspection */
         $did = 0;
       }
     }
 
     if (!isset($unsafe_q)) {
-      /** @noinspection PhpUnusedLocalVariableInspection */
       $unsafe_q = isset($_GET['q']) ? $_GET['q'] : '';
     }
 
@@ -197,11 +200,14 @@ abstract class Controller implements Builder {
   }
 
   /**
-   * Push a rebuild request to the queue while holding a lock for existing content.
+   * Enqueue a rebuild request while holding a lock for existing content.
    *
-   * @param \stdClass $data
+   * @param object $data
+   *   A cache object from cacheGet().
    * @param string $cid
+   *   The id under which to re-cache the object.
    * @param string $lock_name
+   *   The name of the Lazy lock.
    */
   protected function enqueueRebuild($data, $cid, $lock_name) {
     // Only CACHE_TEMPORARY items can be stale, so no check needed.
@@ -216,12 +222,12 @@ abstract class Controller implements Builder {
   /**
    * Getter for $cid.
    *
-   * TODO cache varies per-everything : in the future, it
-   * needs to depend only on specific context elements, as defined by Route::cache,
-   * roles, or language.
-   * TODO use a more compact CID format for better efficiency
+   * TODO cache varies per-everything : in the future, it needs to depend only
+   * on specific context elements as defined by Route::cache, roles or language.
+   * TODO use a more compact CID format for better efficiency.
    *
    * @return string
+   *   A cache id for cache* operations.
    */
   public function getCid() {
     $cid = [
@@ -240,13 +246,17 @@ abstract class Controller implements Builder {
    * Getter for $did.
    *
    * @return int
+   *   The Domain id for this controller. 0 if Domain is not enabled.
    */
   public function getDid() {
     return $this->did;
   }
 
   /**
+   * Facade for \DrupalQueue::get().
+   *
    * @return \DrupalQueueInterface
+   *   The Lazy content queue.
    */
   public function getQueue() {
     /** @var \DrupalQueueInterface $q */
@@ -258,6 +268,7 @@ abstract class Controller implements Builder {
    * Getter for $uid.
    *
    * @return int
+   *   The user id for this controller instance.
    */
   public function getUid() {
     return $this->uid;
@@ -266,9 +277,11 @@ abstract class Controller implements Builder {
   /**
    * Drupal cache items are stale if they are not permanent and expire "soon".
    *
-   * @param \stdClass $cache_item
+   * @param object $cache_item
+   *   A cache item returned by cacheGet().
    *
    * @return bool
+   *   Is the item stale ?
    */
   public function isStale($cache_item) {
     $ret = !empty($cache_item->expire)
@@ -289,7 +302,7 @@ abstract class Controller implements Builder {
     watchdog('lazy', 'Base @class/@method:<pre><code>@controller</code></pre>', [
       '@class' => get_called_class(),
       '@method' => __METHOD__,
-      '@controller' => var_export($this, true),
+      '@controller' => var_export($this, TRUE),
     ], WATCHDOG_DEBUG);
 
     $this->masqueradeStart();
@@ -299,7 +312,8 @@ abstract class Controller implements Builder {
 
     /* Run strategy can be chosen based on route needs:
      * - normal controllers will run with the "simple" runner
-     * - controllers which output data and/or die()/exit() need the "forking" runner
+     * - controllers which output data and/or die()/exit() need the "forking"
+     *   runner
      *
      * TODO However, at this point 'forking' is not complete.
      */
@@ -321,8 +335,6 @@ abstract class Controller implements Builder {
    *
    * @see Asynchronizer::masquerade()
    * @see arg()
-   *
-   * @return void
    */
   protected function masqueradeStart() {
     $saved_account = $GLOBALS['user'];
@@ -343,18 +355,16 @@ abstract class Controller implements Builder {
 
     $this->savedUnsafeQ = $_GET['q'];
     drupal_static_reset('arg');
-    $_GET['q'] = $this->unsafe_q;
+    $_GET['q'] = $this->unsafeQ;
   }
 
   /**
-   * Restored the preserved Drupal context.
+   * Restore the preserved Drupal context.
    *
    * This implementation if not reentrant.
    *
    * @see Asynchronizer::masquerade()
    * @see arg()
-   *
-   * @return void
    */
   protected function masqueradeStop() {
     drupal_static_reset('arg');
@@ -372,23 +382,27 @@ abstract class Controller implements Builder {
    * @see lazy_cron_queue_info()
    *
    * @return array
+   *   A queue info array as per hook_cron_queue_info().
    */
   public static function cronQueueInfo() {
-    $ret = array(
-      static::QUEUE_NAME => array(
-      'worker callback' => array(__CLASS__, 'work'),
+    $ret = [
+      static::QUEUE_NAME => [
+      'worker callback' => [__CLASS__, 'work'],
       'time' => static::EXECUTE_TIMEOUT,
       'skip on cron' => FALSE,
-    ));
+      ]
+    ];
     return $ret;
   }
 
   /**
    * A facade for core function lock_acquire().
    *
-   * @param string $lock_name lock name
+   * @param string $lock_name
+   *   The name of the Lazy lock to attempt acquiring.
    *
    * @return bool
+   *   TRUE if the lock was acquired, FALSE if it failed.
    */
   protected function lockAcquire($lock_name) {
     return lock_acquire($lock_name, static::LOCK_TIMEOUT);
@@ -397,7 +411,8 @@ abstract class Controller implements Builder {
   /**
    * An adapter for core function lock_wait().
    *
-   * @param $lock_name
+   * @param string $lock_name
+   *   The name of the Lazy lock on which to wait.
    */
   protected function lockWait($lock_name) {
     lock_wait($lock_name);
@@ -406,7 +421,8 @@ abstract class Controller implements Builder {
   /**
    * An adapter for core function lock_release().
    *
-   * @param $lock_name
+   * @param string $lock_name
+   *   The name of the Lazy lock to release.
    */
   protected function lockRelease($lock_name) {
     lock_release($lock_name);
@@ -438,9 +454,12 @@ abstract class Controller implements Builder {
    * Render the builder results in a front-end page cycle.
    *
    * @param string $cid
+   *   The id under which to cache the render result.
    * @param string $lock_name
+   *   The name of the Lazy lock to use for mutual rendering exclusion.
    *
    * @return mixed
+   *   A render result.
    */
   protected function renderFront($cid, $lock_name) {
     watchdog('lazy', "renderFront(@cid)", ['@cid' => $cid], WATCHDOG_DEBUG);
@@ -456,6 +475,7 @@ abstract class Controller implements Builder {
    * Only serialize the properties needed by the constructor.
    *
    * @return array
+   *   The exported properties, as per PHP __sleep() specification.
    */
   public function __sleep() {
     $ret = array(
@@ -467,7 +487,7 @@ abstract class Controller implements Builder {
       'grace',
       'minimumTtl',
       'ttl',
-      'unsafe_q',
+      'unsafeQ',
     );
 
     return $ret;
@@ -476,7 +496,11 @@ abstract class Controller implements Builder {
   /**
    * A facade for core cache_get() function.
    *
-   * @param $cid
+   * @param string $cid
+   *   The if of the cache entry to retrieve.
+   *
+   * @return object|FALSE
+   *   A cache result, or FALSE if no entry was found.
    */
   protected function cacheGet($cid) {
     return cache_get($cid, static::CACHE_BIN);
@@ -487,12 +511,16 @@ abstract class Controller implements Builder {
    *
    * Untestable: returns nothing and only invokes procedural code.
    *
-   * @codeCoverageIgnore
-   *
-   * @param $content
+   * @param mixed $content
+   *   The content to cache.
    * @param string $cid
+   *   The cache id under which to cache the content.
    * @param string $bin
+   *   The bin in which to cache the content.
    * @param int $expire
+   *   The content expiration timestamp.
+   *
+   * @codeCoverageIgnore
    */
   protected function cacheSet($content, $cid = NULL, $bin = NULL, $expire = NULL) {
     if (!isset($cid)) {
@@ -512,18 +540,29 @@ abstract class Controller implements Builder {
    * Controller factory.
    *
    * @param \OSInet\Lazy\Route $route
+   *   The current route.
    * @param string $original_controller
+   *   The original controller for the route.
    * @param array $args
+   *   The original arguments for the route.
    * @param int $ttl
-   * @param int $minimumTtl
+   *   The initial TTL, in seconds, for the content.
+   * @param int $minimum_ttl
+   *   The minimum TTL, in seconds, below which a rebuild is triggered.
    * @param int $grace
+   *   The TTL grace, in seconds, to be added when a rebuild is triggered.
    * @param int $uid
+   *   The user id for which to build.
    * @param int $did
+   *   The domain id within which to build.
    * @param string $unsafe_q
+   *   The raw $_GET['q'] path.
    *
-   * @return \OSInet\Lazy\Controller\Builder
+   * @return \OSInet\Lazy\Controller\BuilderInterface
+   *   A builder instance for the chosen context, based on the type of
+   *   generation the current user is allowed to use.
    */
-  public static function create(Route $route, $original_controller, array $args = [], $ttl = 3600, $minimumTtl = 300, $grace = 3600, $uid = NULL, $did = NULL, $unsafe_q = NULL) {
+  public static function create(Route $route, $original_controller, array $args = [], $ttl = 3600, $minimum_ttl = 300, $grace = 3600, $uid = NULL, $did = NULL, $unsafe_q = NULL) {
     if (user_access('lazy_front_always')) {
       $class = 'LiveController';
     }
@@ -538,12 +577,14 @@ abstract class Controller implements Builder {
     }
 
     $class = __NAMESPACE__ . "\\$class";
-    $ret = new $class($route, $original_controller, $args, $ttl, $minimumTtl, $grace, $uid, $did, $unsafe_q);
+    $ret = new $class($route, $original_controller, $args, $ttl, $minimum_ttl, $grace, $uid, $did, $unsafe_q);
     return $ret;
   }
 
   /**
-   * @see \Asynchronizer::work()
+   * Actually perform the queued work.
+   *
+   * @see \OSInet\Lazy\Controller\Controller::work()
    */
   public function doWork() {
     list($cid, $content) = $this->masquerade();
@@ -561,17 +602,14 @@ abstract class Controller implements Builder {
    *
    * Since the method is static and returns nothing, it cannot be tested.
    *
+   * @param \OSInet\Lazy\Controller\Controller $a
+   *   The queued Controller instance.
+   *
    * @codeCoverageIgnore
    *
    * @see \OSInet\Lazy\Controller\Controller::cronQueueInfo()
    *
    * @see \OSInet\Lazy\Controller\Controller::__construct()
-   *
-   * @param \OSInet\Lazy\Controller\Controller $a
-   *   The queued Controller instance.
-   *
-   * @return void
-   *
    */
   public static function work(Controller $a) {
     watchdog('lazy', "@class::work(@cid), controller: <pre>@controller</pre>", [
@@ -581,4 +619,5 @@ abstract class Controller implements Builder {
     ], WATCHDOG_DEBUG);
     $a->doWork();
   }
+
 }

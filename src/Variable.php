@@ -41,7 +41,7 @@ class Variable {
    * Facade for variable_get().
    *
    * @param string $name
-   *  The base name of the variable.
+   *   The base name of the variable.
    *
    * @return mixed|NULL
    *   - NULL is returned if the variable is not defined.
@@ -58,9 +58,9 @@ class Variable {
    * Facade for variable_set().
    *
    * @param string $name
-   *  The base name of the variable.
-   *
+   *   The base name of the variable.
    * @param mixed $value
+   *   The value to store in the variable.
    */
   public static function set($name, $value) {
     static::$defaults[$name] = $value;
@@ -68,6 +68,8 @@ class Variable {
   }
 
   /**
+   * Get the base variable names.
+   *
    * @return string[]
    *   The array of base variable names for the modules.
    */
@@ -101,4 +103,5 @@ class Variable {
       static::set($name, $current);
     }
   }
+
 }

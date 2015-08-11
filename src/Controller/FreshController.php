@@ -13,8 +13,10 @@
 namespace OSInet\Lazy\Controller;
 
 /**
- * Class FreshController is a midpoint between MissController and LiveController
- * as it will serve fresh data from cache, but treat stale date as missing.
+ * Class FreshController.
+ *
+ * This is a midpoint between MissController and LiveController as it will serve
+ * fresh data from cache, but treat stale date as missing.
  *
  * @package OSInet\Lazy
  */

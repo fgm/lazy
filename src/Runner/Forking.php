@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Runner.php
+ * Contains Runner.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -12,8 +12,13 @@
 
 namespace OSInet\Lazy\Runner;
 
+use OSInet\Lazy\Controller\BuilderInterface;
+
 /**
- * Class Forking
+ * Class Forking is a two-process runner.
+ *
+ * As such, it allows never-returning pages, like those sending data on their
+ * own, or invoking drupal_goto(), or any other "end-of-process" behaviors.
  *
  * @package OSInet\Lazy\Runner
  *
@@ -25,6 +30,16 @@ class Forking extends Base {
    */
   const SELECT_TIMEOUT = 5;
 
+  /**
+   * Log a socket error.
+   *
+   * @param string $channel
+   *   The name of the logging channel.
+   * @param string $message
+   *   A logger message template.
+   * @param int $severity
+   *   The event severity, a WATCHDOG_* constant.
+   */
   protected function socketLog($channel, $message, $severity) {
     $errno = socket_last_error();
     $err_str = socket_strerror($errno);
@@ -34,6 +49,16 @@ class Forking extends Base {
     ], $severity);
   }
 
+  /**
+   * Log a process control error.
+   *
+   * @param string $channel
+   *   The name of the logging channel.
+   * @param string $message
+   *   A logger message template.
+   * @param int $severity
+   *   The event severity, a WATCHDOG_* constant.
+   */
   protected function pcntlLog($channel, $message, $severity) {
     $errno = pcntl_get_last_error();
     $err_str = pcntl_strerror($errno);
@@ -44,9 +69,9 @@ class Forking extends Base {
   }
 
   /**
-   * @return null
+   * {@inheritdoc}
    */
-  public function run() {
+  public function run(callable $builder, array $args = []) {
     list($parent, $child) = stream_socket_pair(AF_UNIX, SOCK_STREAM, IPPROTO_IP);
 
     $pid = pcntl_fork();
@@ -60,11 +85,11 @@ class Forking extends Base {
     elseif ($pid > 0) {
       fclose($parent);
 
-      /* CAVEAT: this code assumes that:
-        -  fails will only happen during the execution of the controller in the
-           child process. If does not handle faillures during static::run() itself.
-        - no error will occur during socket transmission itself.
-      */
+      /* CAVEAT: this code::
+      - Assumes fails only happen during the execution of the child controller.
+      - Does not handle failures during static::run() itself.
+      - Assumes that no error will occur during socket transmission itself.
+       */
 
       // First read the message length in fixed format.
       $read = [$child];
@@ -162,7 +187,7 @@ class Forking extends Base {
       $this->result = $ret;
     }
 
-    // Child process
+    // Child process.
     else {
       fclose($child);
       sleep(6);
@@ -190,4 +215,5 @@ class Forking extends Base {
       exit(0);
     }
   }
+
 }
