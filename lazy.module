@@ -37,7 +37,7 @@ function lazy_controller_override($original_controller, Route $route, $route_nam
  * Implements hook_cron_queue_info().
  */
 function lazy_cron_queue_info() {
-  $result = Controller::cronQueueInfo() + Asynchronizer::queueInfo();
+  $result = Controller::cronQueueInfo() + Asynchronizer::cronQueueInfo();
   return $result;
 }
 

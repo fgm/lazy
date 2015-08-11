@@ -15,11 +15,12 @@
  */
 
 /* There is still a problem with XAutoload being used in hook_install() and
- * hook_uninstall(), hence the manual includes.
+ * hook_uninstall(), hence the manual includes. The referenced issue only
+ * addresses simpler cases.
  *
  * @see https://www.drupal.org/node/2078587
  */
-require_once __DIR__ . '/src/Controller/Builder.php';
+require_once __DIR__ . '/src/Controller/BuilderInterface.php';
 require_once __DIR__ . '/src/Controller/Controller.php';
 require_once __DIR__ . '/src/Variable.php';
 

@@ -15,6 +15,7 @@
 
 namespace OSInet\Lazy;
 
+use OSInet\Lazy\CacheFactory;
 
 /**
  * Class Asynchronizer brings asynchronism to the rendering of blocks.
@@ -22,6 +23,8 @@ namespace OSInet\Lazy;
  * @package OSInet\Lazy
  */
 class Asynchronizer {
+
+  const DEBUG_HEADER = 'X-Lazy-Block';
 
   /**
    * Maximum length of time before retrying to acquire a build lock.
@@ -225,10 +228,14 @@ class Asynchronizer {
   protected function enqueueRebuild($data, $cid, $lock_name) {
     // Only CACHE_TEMPORARY items can be stale, so no check needed.
     $expire = $data->expire + $this->grace;
-    $this->cacheSet($data->data, $cid, $expire);
+    $this->cacheSet($cid, $data->data, $expire);
+
     /** @var \DrupalQueueInterface $queue */
-    $queue = DrupalQueue::get(static::QUEUE_NAME);
-    $queue->createItem($this);
+    $queue = \DrupalQueue::get(static::QUEUE_NAME);
+
+    $lite = $this->prepareQueuing();
+    $queue->createItem($lite);
+
     $this->lockRelease($lock_name);
   }
 
@@ -308,13 +315,13 @@ class Asynchronizer {
    *
    * Caveat: this implementation if not reentrant.
    *
-   * @param callable $builder
+   * @param array|string $builder
    *   The builder used to build this block.
    *
    * @return mixed
    *   The results of the builder.
    */
-  public function masquerade(callable $builder) {
+  public function masquerade($builder) {
     $this->masqueradeStart();
 
     if (is_array($builder)) {
@@ -372,12 +379,12 @@ class Asynchronizer {
    * @return array
    *   A queue info array, as per hook_cron_queue_info().
    */
-  public static function queueInfo() {
+  public static function cronQueueInfo() {
     $ret = [
       static::QUEUE_NAME => [
       'worker callback' => [__CLASS__, 'work'],
       'time' => 30,
-      'skip on cron' => TRUE,
+      'skip on cron' => FALSE,
       ]
     ];
     return $ret;
@@ -450,13 +457,22 @@ class Asynchronizer {
         if ($this->isStale($cached)) {
           // No one else cares: trigger refresh and add grace to the cache item.
           if ($this->lockAcquire($lock_name)) {
+            if ($this->verbose) {
+              drupal_add_http_header(static::DEBUG_HEADER, "$cid=STALE-REFRESH");
+            }
             $this->enqueueRebuild($cached, $cid, $lock_name);
           }
           // Someone else is already handling refresh: leave it alone.
+          if ($this->verbose) {
+            drupal_add_http_header(static::DEBUG_HEADER, "$cid=STALE-BUSY");
+          }
           break;
         }
         // Valid fresh data: no extra work needed.
         else {
+          if ($this->verbose) {
+            drupal_add_http_header(static::DEBUG_HEADER, "$cid-FRESH");
+          }
           break;
         }
       }
@@ -489,6 +505,7 @@ class Asynchronizer {
     }
 
     $ret = call_user_func_array($user_func, $args);
+    drupal_add_http_header(static::DEBUG_HEADER, "$cid=MISS");
     $this->cacheSet($cid, $ret, REQUEST_TIME + $this->ttl);
     lock_release($lock_name);
 
@@ -504,6 +521,7 @@ class Asynchronizer {
   public function __sleep() {
     $ret = array(
       'builder',
+      'cache',
       'did',
       'uid',
       'grace',
@@ -550,16 +568,16 @@ class Asynchronizer {
    *
    * Untestable: returns nothing and only invokes procedural code.
    *
+   * @param string $cid
+   *   The cid under which to cache the data. Use NULL to have it rebuilt.
    * @param mixed $content
    *   The data to cache.
-   * @param string $cid
-   *   The under which to cache the data.
    * @param int $expire
    *   The cached data expiration timestamp.
    *
    * @codeCoverageIgnore
    */
-  protected function cacheSet($content, $cid = NULL, $expire = NULL) {
+  protected function cacheSet($cid, $content, $expire = NULL) {
     $cid = (isset($cid) ? $cid : $this->getCid());
     $expire = (isset($expire) ? $expire : REQUEST_TIME + $this->ttl);
 
@@ -573,8 +591,9 @@ class Asynchronizer {
    */
   public function doWork() {
     $content = $this->masquerade($this->builder);
-    $this->cacheSet($content);
-    $this->log(WATCHDOG_DEBUG, 'Worker built @cid', array('@cid' => $this->getCid()));
+    $cid = $this->getCid();
+    $this->cacheSet($cid, $content);
+    $this->log(WATCHDOG_DEBUG, 'Worker built @cid', array('@cid' => $cid));
   }
 
   /**
@@ -589,6 +608,29 @@ class Asynchronizer {
   }
 
   /**
+   * Removed known non-cacheable members, like closures or the cache service.
+   */
+  protected function prepareQueuing() {
+    $lite = [];
+    foreach ($this->__sleep() as $key) {
+      $lite[$key] = $this->{$key};
+    }
+
+    unset($lite['cache'], $lite['domainGetter'], $lite['domainSetter']);
+    return $lite;
+  }
+
+  /**
+   * Set verbosity.
+   *
+   * @param bool $isVerbose
+   *   Add extra debug information ?
+   */
+  public function setVerbose($isVerbose) {
+    $this->verbose = (bool) $isVerbose;
+  }
+
+  /**
    * Queue worker called from runqueue.sh.
    *
    * Since runqueue.sh is not aware of Asynchronizer, it can not create an
@@ -598,8 +640,9 @@ class Asynchronizer {
    *
    * Since the method is static and returns nothing, it cannot be tested.
    *
-   * @param Asynchronizer $a
-   *   The queued Asynchronizer instance.
+   * @param $item
+   *   Depending on the queueing module, it can be an Asynchronizer instance,
+   *   or more likely a simple array (MongoDB).
    *
    * @codeCoverageIgnore
    *
@@ -607,7 +650,18 @@ class Asynchronizer {
    *
    * @see Asynchronizer::__construct()
    */
-  public static function work(Asynchronizer $a) {
+  public static function work($item) {
+    if (is_array($item)) {
+      $cache = CacheFactory::create();
+      $a = new Asynchronizer(
+        $item['builder'],
+        $cache,
+        $item['ttl'],
+        $item['minimumTtl'],
+        $item['grace'],
+        $item['uid'],
+        $item['did']);
+    }
     $a->doWork();
   }
 

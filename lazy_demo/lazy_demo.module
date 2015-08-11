@@ -9,7 +9,58 @@
  *
  * @license General Public License version 2 or later
  */
+use OSInet\Lazy\Asynchronizer;
+use OSInet\Lazy\CacheFactory;
 
+function _lazy_demo_block_demo_build() {
+  $ret = [
+    '#markup' => t('Lazy Block content.'),
+  ];
+  return $ret;
+}
+
+/**
+ * Implements hook_block_view('demo').
+ */
+function _lazy_demo_block_view_demo() {
+  $cache = CacheFactory::create();
+  $asynchronizer = new Asynchronizer('_lazy_demo_block_demo_build', $cache);
+  $asynchronizer->setVerbose(TRUE);
+  $content = $asynchronizer->render();
+  $result = [
+    'subject' => t('Lazy demo block subject'),
+    'content' => $content,
+  ];
+  return $result;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function lazy_demo_block_info() {
+  $ret = [
+    'demo' => [
+      'info' => t('Lazy demo block'),
+      'cache' => DRUPAL_CACHE_PER_USER,
+    ]        ,
+  ];
+
+  return $ret;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function lazy_demo_block_view($delta) {
+  $builder = '_' . __FUNCTION__ . "_$delta";
+  if (function_exists($builder)) {
+    $ret = $builder();
+  }
+  else {
+    $ret = NULL;
+  }
+  return $ret;
+}
 
 /**
  * Implements hook_menu().
