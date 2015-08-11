@@ -204,11 +204,10 @@ class Asynchronizer {
    *   The callable used to (pretend to) set the domain id.
    */
   protected function getDomainSetter() {
-    $that = $this;
     $result = function_exists('domain_set_domain')
       ? 'domain_set_domain'
-      : function ($did) use($that) {
-        $that->did = $did;
+      : function ($did) {
+        $this->did = $did;
       };
     return $result;
   }
@@ -262,18 +261,20 @@ class Asynchronizer {
    *   The Domain id for this instance, 0 if Domain is not enabled.
    */
   public function getDid() {
-    return $this->did;
+    $result = $this->did;
+    assert('is_int($result)');
+    return $result;
   }
 
   /**
-   * Return the domain id.
+   * Return the domain array for the default domain.
    *
    * @return int
-   *   The domain id, 0 if Domain is not installed.
+   *   The domain array, or a stub thereof if Domain is not installed.
    */
   protected function getDomain() {
     $getter = $this->domainGetter;
-    $result = $getter($this->getDid());
+    $result = $getter();
     return $result;
   }
 

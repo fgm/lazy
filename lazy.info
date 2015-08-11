@@ -12,7 +12,7 @@ description = A lazy page and block generation module
 package = "Performance and scalability"
 project status url = http://features.osinet.eu/fserver
 
-; module uses short array syntax and callable hint.
+; module uses short array syntax, callable hint, and $this in closures.
 php = 5.4
 core = 7.x
 
