@@ -13,6 +13,7 @@
 namespace Drupal\lazy\Tests;
 
 use OSInet\Lazy\Asynchronizer;
+use OSInet\Lazy\CacheFactory;
 
 /**
  * Class AsynchronizerTest contains unit tests for Asynchronizer.
@@ -23,9 +24,18 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
   const TESTED_CLASS = '\OSInet\Lazy\Asynchronizer';
 
   /**
-   * @var callable
+   * A runnable builder instance. Not synonymous with "callable" hint.
+   *
+   * @var array|string
    */
   protected $builder;
+
+  /**
+   * The cache backend used to hold cached block content.
+   *
+   * @var \DrupalCacheInterface
+   */
+  protected $cache;
 
   protected $counter;
 
@@ -34,6 +44,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
    */
   public function setUp() {
     $this->builder = array(__CLASS__, 'build');
+    $this->cache = CacheFactory::create();
   }
 
   /**
@@ -73,7 +84,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
     $expected_cid = "somebuilder:42:69";
 
-    $a = new Asynchronizer($builder, $ttl, $min_ttl, $grace, $uid, $did);
+    $a = new Asynchronizer($builder, $this->cache, $ttl, $min_ttl, $grace, $uid, $did);
     $this->assertEquals($expected_cid, $a->getCid());
   }
 
@@ -88,7 +99,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
     $expected_cid = "somebuilder:$expected_did:$expected_uid";
 
-    $a = new Asynchronizer($builder);
+    $a = new Asynchronizer($builder, $this->cache);
     $this->assertEquals($expected_cid, $a->getCid());
 
   }
@@ -101,7 +112,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
     $did = 42;
 
     $expected_did = $did;
-    $a = new Asynchronizer($builder, NULL, NULL, NULL, NULL, $did);
+    $a = new Asynchronizer($builder, $this->cache, NULL, NULL, NULL, NULL, $did);
     $this->assertEquals($expected_did, $a->getDid());
   }
 
@@ -111,7 +122,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
   public function testIsStaleTrue() {
     $ttl = 1000;
     $min_ttl = 100;
-    $a = new Asynchronizer($this->builder, $ttl, $min_ttl);
+    $a = new Asynchronizer($this->builder, $this->cache, $ttl, $min_ttl);
     $cache_item = (object) array(
       'data' => 'whatever',
       'expire' => REQUEST_TIME + $min_ttl - 1,
@@ -125,7 +136,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
   public function testIsStaleFalse() {
     $ttl = 3600;
     $min_ttl = 300;
-    $a = new Asynchronizer($this->builder, $ttl, $min_ttl);
+    $a = new Asynchronizer($this->builder, $this->cache, $ttl, $min_ttl);
     $cache_item = (object) array(
       'data' => 'whatever',
       'expire' => REQUEST_TIME + $min_ttl + 1,
@@ -169,6 +180,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
     $mock_params = [
       $this->builder,
+      $this->cache,
     ];
 
     $mock = $this->getMock(self::TESTED_CLASS, $mock_methods, $mock_params);
@@ -205,6 +217,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
     $mock_params = [
       $this->builder,
+      $this->cache,
     ];
 
     $mock = $this->getMock(self::TESTED_CLASS, $mock_methods, $mock_params);
@@ -247,6 +260,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
     $mock_params = [
       $this->builder,
+      $this->cache,
     ];
 
     $mock = $this->getMock(self::TESTED_CLASS, $mock_methods, $mock_params);
@@ -282,6 +296,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
     $mock_params = [
       $this->builder,
+      $this->cache,
     ];
 
     $mock = $this->getMock(self::TESTED_CLASS, $mock_methods, $mock_params);
@@ -316,6 +331,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
 
     $mock_params = array(
       $this->builder,
+      $this->cache,
     );
 
     $mock = $this->getMock(self::TESTED_CLASS, $mock_methods, $mock_params);
@@ -358,6 +374,7 @@ class AsynchronizerTest extends \PHPUnit_Framework_TestCase {
     ];
     $mock_params = [
       $this->builder,
+      $this->cache,
     ];
     $mock = $this->getMock(self::TESTED_CLASS, $mock_methods, $mock_params);
 

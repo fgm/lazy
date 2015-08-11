@@ -18,12 +18,10 @@ namespace OSInet\Lazy;
 
 /**
  * Class Asynchronizer brings asynchronism to the rendering of blocks.
+ *
+ * @package OSInet\Lazy
  */
 class Asynchronizer {
-  /**
-   * The cache bin used by this class.
-   */
-  const BIN = 'cache_lazy_blocks';
 
   /**
    * Maximum length of time before retrying to acquire a build lock.
@@ -48,6 +46,13 @@ class Asynchronizer {
    * @var string or array (if args)
    */
   protected $builder;
+
+  /**
+   * The cache backend used to store block contents.
+   *
+   * @var \DrupalCacheInterface
+   */
+  protected $cache;
 
   /**
    * A Drupal Domain id within which to rebuild.
@@ -135,10 +140,12 @@ class Asynchronizer {
   /**
    * Asynchronizer constructor.
    *
-   * @param string $builder
+   * @param array|string $builder
    *   The name of the function used to perform a rebuild. Can be a plain
    *   function or static method, but cannot be a Closure as it will be
    *   serialized to the queue.
+   * @param \DrupalCacheInterface $cache
+   *   The cache bin in which to cache data.
    * @param int $ttl
    *   The initial TTL, in seconds, for the content.
    * @param int $minimum_ttl
@@ -150,7 +157,7 @@ class Asynchronizer {
    * @param int $did
    *   The domain id within which to build.
    */
-  public function __construct($builder, $ttl = 3600, $minimum_ttl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+  public function __construct($builder, \DrupalCacheInterface $cache, $ttl = 3600, $minimum_ttl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
     if (!isset($uid)) {
       $account = isset($GLOBALS['user']) ? $GLOBALS['user'] : drupal_anonymous_user();
       $uid = $account->uid;
@@ -219,7 +226,7 @@ class Asynchronizer {
   protected function enqueueRebuild($data, $cid, $lock_name) {
     // Only CACHE_TEMPORARY items can be stale, so no check needed.
     $expire = $data->expire + $this->grace;
-    $this->cacheSet($data->data, $cid, static::BIN, $expire);
+    $this->cacheSet($data->data, $cid, $expire);
     /** @var \DrupalQueueInterface $queue */
     $queue = DrupalQueue::get(static::QUEUE_NAME);
     $queue->createItem($this);
@@ -409,7 +416,7 @@ class Asynchronizer {
   }
 
   /**
-   * Return a rendered block.
+   * Return built block contents.
    *
    * @return mixed
    *   String or render array in case of success, FALSE in case of failure.
@@ -421,9 +428,10 @@ class Asynchronizer {
 
     $ret = FALSE;
     while ($passes < static::MAX_PASSES) {
-      $data = $this->cacheGet($cid);
-      // No valid data from cache: perform a synchronous build.
-      if (empty($data) || empty($data->data)) {
+      $cached = $this->cacheGet($cid);
+
+      // No valid fresh data from cache: perform a synchronous build.
+      if (empty($cached) || empty($cached->data)) {
         if ($this->lockAcquire($lock_name)) {
           $ret = $this->renderFront($cid, $lock_name);
           break;
@@ -435,13 +443,13 @@ class Asynchronizer {
       }
       // Valid data from cache: they can be served.
       else {
-        $ret = $data->data;
+        $ret = $cached->data;
 
         // Valid stale data: serve, but refresh.
-        if ($this->isStale($data)) {
+        if ($this->isStale($cached)) {
           // No one else cares: trigger refresh and add grace to the cache item.
           if ($this->lockAcquire($lock_name)) {
-            $this->enqueueRebuild($data, $cid, $lock_name);
+            $this->enqueueRebuild($cached, $cid, $lock_name);
           }
           // Someone else is already handling refresh: leave it alone.
           break;
@@ -480,7 +488,7 @@ class Asynchronizer {
     }
 
     $ret = call_user_func_array($user_func, $args);
-    cache_set($cid, $ret, static::BIN, REQUEST_TIME + $this->ttl);
+    $this->cacheSet($cid, $ret, REQUEST_TIME + $this->ttl);
     lock_release($lock_name);
 
     return $ret;
@@ -533,7 +541,7 @@ class Asynchronizer {
    *   As per cache_get().
    */
   protected function cacheGet($cid) {
-    return cache_get($cid, static::BIN);
+    return $this->cache->get($cid);
   }
 
   /**
@@ -545,19 +553,16 @@ class Asynchronizer {
    *   The data to cache.
    * @param string $cid
    *   The under which to cache the data.
-   * @param string $bin
-   *   The name of the bin in which to cache the data.
    * @param int $expire
    *   The cached data expiration timestamp.
    *
    * @codeCoverageIgnore
    */
-  protected function cacheSet($content, $cid = NULL, $bin = NULL, $expire = NULL) {
+  protected function cacheSet($content, $cid = NULL, $expire = NULL) {
     $cid = (isset($cid) ? $cid : $this->getCid());
-    $bin = (isset($bin) ? $bin : static::BIN);
     $expire = (isset($expire) ? $expire : REQUEST_TIME + $this->ttl);
 
-    cache_set($cid, $content, $bin, $expire);
+    $this->cache->set($cid, $content, $expire);
   }
 
   /**
