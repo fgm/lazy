@@ -12,37 +12,20 @@
 
 namespace OSInet\Lazy;
 
+/**
+ * Class PanelsCachePlugin is an Asynchronizer-based Panels cache plugin.
+ *
+ * @package OSInet\Lazy
+ */
 class PanelsCachePlugin extends PanelsCachePluginBase {
-  const CACHE_BIN = 'cache_lazy_panels';
-
-  protected static $instance = NULL;
-
-  protected $cacheBackend;
-
   /**
-   * Constructor.
-   *
-   * @param \DrupalCacheInterface $cache_backend
-   *   The cache backend to use for this cache plugin.
-   */
-  protected function __construct(\DrupalCacheInterface $cache_backend) {
-    $this->cacheBackend = $cache_backend;
-  }
-
-  /**
-   * Return the plugin definition.
-   *
-   * This is what is traditionally included in the plugin definition file.
-   *
-   * @return array
-   *
-   * @see plugins/cache/lazy_cache.inc
-   * @see ctools_get_plugins()
+   * {@inheritdoc}
    */
   public static function definition() {
     $ret = [
       'title' => t("Lazy Cache"),
       'description' => t('A CTools cache trying to avoid work during page building.'),
+      'class' => __CLASS__,
       'defaults' => array(
         'lifetime' => 15,
         'granularity' => array(),
@@ -53,9 +36,10 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
   }
 
   /**
-   * Get cached content.
+   * {@inheritdoc}
    */
-  public function get($conf, $display, $args, $contexts, $pane = NULL) {
+  public function get(array $conf, \panels_display $display, array $args, array $contexts, $pane = NULL) {
+    dsm($pane, __METHOD__);
 
     // If panels hash cache is totally disabled, return false;
     if (variable_get('panels_hash_cache_disabled', FALSE)) {
@@ -63,8 +47,8 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     }
 
     // Optionally allow us to clear the cache from the URL using a key,
-    // This lets us, for example, to automatically re-generate a cache using cron
-    // hitting a url. This way users never see uncached content.
+    // This lets us, for example, to automatically re-generate a cache using
+    // cron hitting a url. This way users never see uncached content.
     if ($key = variable_get('panels_hash_cache_reset_key', FALSE)) {
       if (isset($_GET['panels-hash-cache-reset']) && $_GET['panels-hash-cache-reset'] == $key) {
         return FALSE;
@@ -73,9 +57,9 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
 
     $cid = $this->getId($conf, $display, $args, $contexts, $pane);
 
-    $cache = cache_get($cid, 'cache_panels');
+    $cache = $this->cacheBackend->get($cid);
 
-    // Check to see if cache missed, is empty, or is expired
+    // Check to see if cache missed, is empty, or is expired.
     if (!$cache) {
       return FALSE;
     }
@@ -90,24 +74,24 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
   }
 
   /**
-   * Set cached content.
+   * {@inheritdoc}
    */
-  public function set($conf, $content, $display, $args, $contexts, $pane = NULL) {
+  public function set(array $conf, \panels_cache_object $content, \panels_display $display, array $args, array $contexts, $pane = NULL) {
+    dsm($pane, __METHOD__);
     if (!empty($content)) {
       $cid = $this->getId($conf, $display, $args, $contexts, $pane);
-      cache_set($cid, $content, 'cache_panels');
+      $this->cacheBackend->set($cid, $content);
     }
   }
 
   /**
-   * Clear cached content.
-   *
-   * Cache clears are always for an entire display, regardless of arguments.
+   * {@inheritdoc}
    */
-  public function clear($display) {
+  public function clear(\panels_display $display) {
+    dsm(get_defined_vars(), __METHOD__);
     $base_cid = $this->getBaseCid($display);
 
-    cache_clear_all($base_cid, 'cache_panels', TRUE);
+    $this->cacheBackend->clear($base_cid, TRUE);
   }
 
   /**
@@ -116,7 +100,8 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
   protected function getBaseCid($display) {
     $base_id = 'panels-hash-cache';
 
-    // This is used in case this is an in-code display, which means did will be something like 'new-1'.
+    // This is used in case this is an in-code display, which means did will be
+    // something like 'new-1'.
     if (isset($display->owner) && isset($display->owner->id)) {
       $base_id .= '-' . $display->owner->id;
     }
@@ -132,8 +117,22 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
 
   /**
    * Figure out an id for our cache based upon input and settings.
+   *
+   * @param array $conf
+   *   The cache plugin settings.
+   * @param \panels_display $display
+   *   The Panels display.
+   * @param array $args
+   *   The display arguments.
+   * @param array $contexts
+   *   The applicable CTools contexts.
+   * @param null|object $pane
+   *   A pane object when getting a pane, NULL for a whole display.
+   *
+   * @return string
+   *   The cache id for the input and settings.
    */
-  protected function getId($conf, $display, $args, $contexts, $pane) {
+  protected function getId(array $conf, \panels_display $display, array $args, array $contexts, $pane = NULL) {
     $id = $this->getBaseCid($display);
 
     if ($pane) {
@@ -144,8 +143,9 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
       $id .= '-admin';
     }
 
-    // For each selected ganularity situation, add it to the "hashable-string"
-    // This hashable string becomes our cache-key (after it's hashed to shorten it)
+    // For each selected ganularity situation, add it to the "hashable-string".
+    // This hashable string becomes our cache-key (after it's hashed to shorten
+    // it).
     $hashable_string = '';
 
     if (!empty($conf['granularity']['args'])) {
@@ -174,12 +174,12 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     }
 
     if (!empty($conf['granularity']['url'])) {
-      $url = 'http://' . $_SERVER['HTTP_HOST'] . request_uri(TRUE);
+      $url = 'http://' . $_SERVER['HTTP_HOST'] . request_uri();
 
       $get = $_GET;
       unset($get['q']);
 
-      // If panels-hash-cache-reset is set, then unset it from the query to hash
+      // If panels-hash-cache-reset is set, unset it from the query to hash.
       if (isset($_GET['panels-hash-cache-reset'])) {
         unset($get['panels-hash-cache-reset']);
       }
@@ -227,8 +227,8 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
 
         // User only has one role, i.e. 'authenticated user'.
         if (count($user->roles) == 1) {
-          // Optionally consider authenticated users who have no other roles to be
-          // the same as anonymous users.
+          // Optionally consider authenticated users who have no other roles to
+          // be the same as anonymous users.
           if (!empty($conf['granularity_roles_as_anon'][DRUPAL_AUTHENTICATED_RID])) {
             $hashable_string .= ':anon';
           }
@@ -286,16 +286,24 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     return $id;
   }
 
-  public function settingsForm($conf, $display, $pid) {
+  /**
+   * {@inheritdoc}
+   */
+  public function settingsForm(array $conf, \panels_display $display, $pid) {
+    dsm(get_defined_vars(), __METHOD__);
     ctools_include('dependent');
 
-    $options = drupal_map_assoc(array(15, 30, 60, 120, 180, 240, 300, 600, 900, 1200, 1800, 3600, 7200, 14400, 28800, 43200, 86400, 172800, 259200, 345600, 604800), 'format_interval');
+    $options = drupal_map_assoc(array(15, 30, 60, 120, 180, 240,
+      300, 600, 900, 1200, 1800, 3600,
+      7200, 14400, 28800, 43200, 86400, 172800,
+      259200, 345600, 604800,
+      ), 'format_interval');
     $form['lifetime'] = array(
       '#title' => t('Maximum Lifetime'),
       '#type' => 'select',
       '#options' => $options,
       '#default_value' => $conf['lifetime'],
-      '#description' => t('The cache will be expired after this amount of time elapses. Note that the cache will also automatically be rotated (expired) if any of the granularity-circumstances (set below) are changed or updated.')
+      '#description' => t('The cache will be expired after this amount of time elapses. Note that the cache will also automatically be rotated (expired) if any of the granularity-circumstances (set below) are changed or updated.'),
     );
 
     $form['granularity'] = array(
@@ -307,7 +315,7 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
         'url' => t('Full URL (including query strings)'),
         'path' => t('Drupal Menu Path and Arguments'),
         'user' => t('Active User'),
-        'user_role' => t('Active User\'s Role'),
+        'user_role' => t("Active User's Role"),
       ),
       '#description' => t('The methods in which you wish to store and expire the cache. A change in any of these things will result in a new cache being generated. If more than one is selected, a unique cache will be created for that combination and the cache expires upon a change if any of the components.'),
       '#default_value' => $conf['granularity'],
@@ -349,7 +357,11 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     return $form;
   }
 
-  public function settingsFormSubmit(...$args) {
-    dsm($args, __METHOD__);
+  /**
+   * {@inheritdoc}
+   */
+  public function settingsFormSubmit(array $conf) {
+    dsm(get_defined_vars(), __METHOD__);
   }
+
 }

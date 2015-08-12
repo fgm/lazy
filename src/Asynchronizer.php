@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Lazy-render blocks and "content type" plugins, collectively called "blocks".
@@ -15,7 +16,6 @@
 
 namespace OSInet\Lazy;
 
-use OSInet\Lazy\CacheFactory;
 
 /**
  * Class Asynchronizer brings asynchronism to the rendering of blocks.
@@ -623,11 +623,11 @@ class Asynchronizer {
   /**
    * Set verbosity.
    *
-   * @param bool $isVerbose
+   * @param bool $is_verbose
    *   Add extra debug information ?
    */
-  public function setVerbose($isVerbose) {
-    $this->verbose = (bool) $isVerbose;
+  public function setVerbose($is_verbose) {
+    $this->verbose = (bool) $is_verbose;
   }
 
   /**
@@ -640,7 +640,7 @@ class Asynchronizer {
    *
    * Since the method is static and returns nothing, it cannot be tested.
    *
-   * @param $item
+   * @param array $item
    *   Depending on the queueing module, it can be an Asynchronizer instance,
    *   or more likely a simple array (MongoDB).
    *
@@ -650,7 +650,7 @@ class Asynchronizer {
    *
    * @see Asynchronizer::__construct()
    */
-  public static function work($item) {
+  public static function work(array $item) {
     if (is_array($item)) {
       $cache = CacheFactory::create();
       $a = new Asynchronizer(
