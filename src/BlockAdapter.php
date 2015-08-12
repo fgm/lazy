@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Asynchronizer.php
+ * BlockAdapter.php
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -12,11 +12,10 @@
 
 namespace OSInet\Lazy;
 
-class Asynchronizer extends SourceAdapterBase implements SourceAdapterInterface {
-
-  public function __construct(SourceAdapterInterface $source) {
-
-  }
-
-  public function
+/**
+ * Class BlockAdapter
+ *
+ * @package OSInet\Lazy
+ */
+class BlockAdapter extends SourceAdapterBase {
 }

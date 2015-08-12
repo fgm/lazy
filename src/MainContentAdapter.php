@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Asynchronizer.php
+ * Contains MainContentAdapter.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -12,11 +12,10 @@
 
 namespace OSInet\Lazy;
 
-class Asynchronizer extends SourceAdapterBase implements SourceAdapterInterface {
-
-  public function __construct(SourceAdapterInterface $source) {
-
-  }
-
-  public function
+/**
+ * Class MainContentAdapter
+ *
+ * @package OSInet\Lazy
+ */
+class MainContentAdapter extends SourceAdapterBase {
 }

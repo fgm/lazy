@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Asynchronizer.php
+ * Contains ContextInterface.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -12,11 +12,10 @@
 
 namespace OSInet\Lazy;
 
-class Asynchronizer extends SourceAdapterBase implements SourceAdapterInterface {
 
-  public function __construct(SourceAdapterInterface $source) {
-
-  }
-
-  public function
+interface ContextInterface {
+  public function getDomainId();
+  public function getUserId();
+  public function getRoleIds();
+  public function getRouteName();
 }
