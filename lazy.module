@@ -42,6 +42,14 @@ function lazy_cron_queue_info() {
 }
 
 /**
+ * Implements hook_ctools_plugin_directory().
+ */
+function lazy_ctools_plugin_directory($module, $plugin) {
+  $directory = ($module === 'panels' && $plugin === 'cache') ? 'plugins/cache' : NULL;
+  return $directory;
+}
+
+/**
  * Implements hook_flush_caches().
  */
 function lazy_flush_caches() {
