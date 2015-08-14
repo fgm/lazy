@@ -22,7 +22,7 @@ namespace OSInet\Lazy;
  *
  * @package OSInet\Lazy
  */
-abstract class PanelsCachePluginBase {
+abstract class PanelsCachePluginBase implements PanelsCachePluginInterface {
   /**
    * The name of the bin holding the cached data.
    */
@@ -71,6 +71,7 @@ abstract class PanelsCachePluginBase {
       'cache set' => __NAMESPACE__ . '\set',
       'cache clear' => __NAMESPACE__ . '\clear',
       'settings form' => __NAMESPACE__ . '\settings_form',
+      'settings form validate' => __NAMESPACE__ . '\settings_form_validate',
       'settings form submit' => __NAMESPACE__ . '\settings_form_submit',
     ];
 
@@ -97,72 +98,34 @@ abstract class PanelsCachePluginBase {
   }
 
   /**
-   * Get cached content.
-   *
-   * @param array $conf
-   *   The cache plugin settings.
-   * @param \panels_display $display
-   *   The Panels display.
-   * @param array $args
-   *   The display arguments.
-   * @param array $contexts
-   *   The applicable CTools contexts.
-   * @param null|object $pane
-   *   A pane object when getting a pane, NULL for a whole display.
-   *
-   * @return mixed
-   *   The cached contents, as from cache_get(...)->data.
+   * {@inheritdoc}
    */
   public abstract function get(array $conf, \panels_display $display, array $args, array $contexts, $pane = NULL);
 
   /**
-   * Set cached content in cache.
-   *
-   * @param array $conf
-   *   The cache plugin settings.
-   * @param \panels_cache_object $content
-   *   The data to store.
-   * @param \panels_display $display
-   *   The panels display.
-   * @param array $args
-   *   The display arguments.
-   * @param array $contexts
-   *   The applicable CTools contexts.
-   * @param null|object $pane
-   *   A pane object when getting a pane, NULL for a whole display.
+   * {@inheritdoc}
    */
   public abstract function set(array $conf, \panels_cache_object $content, \panels_display $display, array $args, array $contexts, $pane = NULL);
 
   /**
-   * Clear cached content.
-   *
-   * @param \panels_display $display
-   *   Cache clears are always for an entire display, regardless of arguments.
+   * {@inheritdoc}
    */
   public abstract function clear(\panels_display $display);
 
   /**
-   * Build a form for the plugin settings.
-   *
-   * @param array $conf
-   *   A settings array for the plugin.
-   * @param \panels_display $display
-   *   The current Panels display.
-   * @param string $pid
-   *   The pane id, if a pane. The region id, if a region.
-   *
-   * @return mixed
-   *   A form render array.
+   * {@inheritdoc}
    */
   public abstract function settingsForm(array $conf, \panels_display $display, $pid);
 
   /**
-   * Validate (don't submit) the settings form. Panels will store the settings.
-   *
-   * @param array $conf
-   *   A settings array for the plugin.
+   * {@inheritdoc}
    */
-  public abstract function settingsFormSubmit(array $conf);
+  public function settingsFormSubmit(array $conf) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public function settingsFormValidate(array $form, array $conf) {}
 
 }
 
@@ -235,11 +198,29 @@ function settings_form(array $conf, \panels_display $display, $pid) {
 }
 
 /**
- * Validate (don't submit) the settings form. Panels will store the settings.
+ * For some reason, Panels uses this submit callback as a second validator.
+ *
+ * Do not use it to store the configuration: Panels handles this itself.
+ *
+ * @see panels_edit_cache_settings_form_submit()
  *
  * @param array $conf
- *   A settings array for the plugin.
+ *   A settings array for the plugin, excerpted from $form_state.
  */
 function settings_form_submit(array $conf) {
   PanelsCachePluginBase::instance()->settingsFormSubmit($conf);
+}
+
+/**
+ * Validate the settings form.
+ *
+ * @param array $form
+ *   The settings form render array.
+ * @param array $conf
+ *   A settings array for the plugin, excerpted from $form_state.
+ *
+ * @see panels_edit_cache_settings_form_validate()
+ */
+function settings_form_validate(array $form, array $conf) {
+  PanelsCachePluginBase::instance()->settingsFormValidate($form, $conf);
 }

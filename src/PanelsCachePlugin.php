@@ -56,7 +56,7 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
    * {@inheritdoc}
    */
   public function get(array $conf, \panels_display $display, array $args, array $contexts, $pane = NULL) {
-    dsm($pane, __METHOD__);
+    dsm(get_defined_vars(), __METHOD__);
 
     // If panels hash cache is totally disabled, return false;
     if (variable_get(static::DISABLED_NAME, FALSE)) {
@@ -91,7 +91,7 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
    * {@inheritdoc}
    */
   public function set(array $conf, \panels_cache_object $content, \panels_display $display, array $args, array $contexts, $pane = NULL) {
-    dsm($pane, __METHOD__);
+    dsm(get_defined_vars(), __METHOD__);
     if (!empty($content)) {
       $cid = $this->getId($conf, $display, $args, $contexts, $pane);
       $this->cache->set($cid, $content);
@@ -375,13 +375,6 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     }
 
     return $form;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function settingsFormSubmit(array $conf) {
-    dsm(get_defined_vars(), __METHOD__);
   }
 
 }

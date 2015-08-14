@@ -58,6 +58,11 @@ class Asynchronizer {
   protected $cache;
 
   /**
+   * @var array
+   */
+  protected $cidGenerator;
+
+  /**
    * A Drupal Domain id within which to rebuild.
    *
    * @var int
@@ -159,8 +164,17 @@ class Asynchronizer {
    *   The user id for which to build.
    * @param int $did
    *   The domain id within which to build.
+   * @param callable $cid_generator
+   *   (optional) A callable to generate cids based on its arguments.
+   * @param mixed ...$generator_args
+   *   (optional) Arguments for $cid_generator.
    */
-  public function __construct($builder, \DrupalCacheInterface $cache, $ttl = 3600, $minimum_ttl = 300, $grace = 3600, $uid = NULL, $did = NULL) {
+  public function __construct($builder,
+    \DrupalCacheInterface $cache,
+    $ttl = 3600, $minimum_ttl = 300, $grace = 3600, $uid = NULL, $did = NULL,
+    // Support PHP5.4: no splat operator, use func_get_args().
+    callable $cid_generator = NULL /* , ...$generator_args */) {
+
     if (!isset($uid)) {
       $account = isset($GLOBALS['user']) ? $GLOBALS['user'] : drupal_anonymous_user();
       $uid = $account->uid;
@@ -172,6 +186,15 @@ class Asynchronizer {
     if (!isset($did)) {
       $domain = $this->getDomain();
       $did = $domain['domain_id'];
+    }
+
+    if (isset($cid_generator)) {
+      $args = func_get_args();
+      $args = array_slice($args, 8);
+      $cid_generator = [
+        'callable' => $cid_generator,
+        'args' => $args,
+      ];
     }
 
     // __sleep() returns the names of the constructor parameters.
@@ -244,20 +267,29 @@ class Asynchronizer {
    *
    * Currently, cache can only vary on builder/domain/user : in the future, it
    * could be useful to depend on other context elements, like the local path,
-   * roles, or language.
+   * roles, or language. Alternatively, use an external cid generator.
    *
    * @return string
    *   The cached id for this instance.
    */
   public function getCid() {
-    if (is_array($this->builder)) {
-      $builder = $this->builder['function'] . ':' . implode(':', $this->builder['args']);
+    if (isset($this->cidGenerator)) {
+      $generator = $this->cidGenerator['callable'];
+      $args = $this->cidGenerator['args'];
+      $ret = call_user_func_array($generator, $args);
     }
     else {
-      $builder = $this->builder;
+      if (is_array($this->builder)) {
+        $builder = $this->builder['function'] . ':' . implode(':',
+            $this->builder['args']);
+      }
+      else {
+        $builder = $this->builder;
+      }
+
+      $ret = "{$builder}:{$this->did}:{$this->uid}";
     }
 
-    $ret = "{$builder}:{$this->did}:{$this->uid}";
     return $ret;
   }
 
@@ -462,9 +494,11 @@ class Asynchronizer {
             }
             $this->enqueueRebuild($cached, $cid, $lock_name);
           }
-          // Someone else is already handling refresh: leave it alone.
-          if ($this->verbose) {
-            drupal_add_http_header(static::DEBUG_HEADER, "$cid=STALE-BUSY");
+          else {
+            // Someone else is already handling refresh: leave it alone.
+            if ($this->verbose) {
+              drupal_add_http_header(static::DEBUG_HEADER, "$cid=STALE-BUSY");
+            }
           }
           break;
         }
@@ -527,6 +561,7 @@ class Asynchronizer {
       'grace',
       'minimumTtl',
       'ttl',
+      'cidGenerator',
     );
 
     return $ret;
@@ -660,7 +695,10 @@ class Asynchronizer {
         $item['minimumTtl'],
         $item['grace'],
         $item['uid'],
-        $item['did']);
+        $item['did'],
+        $item['cidGenerator']['callable'],
+        $item['cidGenerator']['args']
+      );
     }
     $a->doWork();
   }
