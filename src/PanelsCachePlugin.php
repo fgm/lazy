@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * PanelsCachePlugin.php
+ * Contains PanelsCachePlugin.
  *
  * @author: Frédéric G. MARAND <fgm@osinet.fr>
  *
@@ -18,6 +18,23 @@ namespace OSInet\Lazy;
  * @package OSInet\Lazy
  */
 class PanelsCachePlugin extends PanelsCachePluginBase {
+  /**
+   * Configuration variable to disable the panels cache without disabling the
+   * whole module.
+   */
+  const DISABLED_NAME = 'lazy_cache_panels_disabled';
+
+  /**
+   * The name of a key which can be passed to the query in order to flush a
+   * cache entry from the request URL.
+   */
+  const RESET_KEY_NAME = 'lazy_cache_panels_reset_key';
+
+  /**
+   * The common base for cache ids.
+   */
+  const CID_BASE = 'lazy-cache-panels';
+
   /**
    * {@inheritdoc}
    */
@@ -42,28 +59,25 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     dsm($pane, __METHOD__);
 
     // If panels hash cache is totally disabled, return false;
-    if (variable_get('panels_hash_cache_disabled', FALSE)) {
+    if (variable_get(static::DISABLED_NAME, FALSE)) {
       return FALSE;
     }
 
     // Optionally allow us to clear the cache from the URL using a key,
-    // This lets us, for example, to automatically re-generate a cache using
-    // cron hitting a url. This way users never see uncached content.
-    if ($key = variable_get('panels_hash_cache_reset_key', FALSE)) {
-      if (isset($_GET['panels-hash-cache-reset']) && $_GET['panels-hash-cache-reset'] == $key) {
+    // This lets us, for example, automatically re-generate a cache using cron
+    // hitting a url. This way users never see uncached content.
+    if ($key = variable_get(static::RESET_KEY_NAME, FALSE)) {
+      if (isset($_GET[static::RESET_KEY_NAME]) && $_GET[static::RESET_KEY_NAME] == $key) {
         return FALSE;
       }
     }
 
     $cid = $this->getId($conf, $display, $args, $contexts, $pane);
 
-    $cache = $this->cacheBackend->get($cid);
+    $cache = $this->cache->get($cid);
 
     // Check to see if cache missed, is empty, or is expired.
-    if (!$cache) {
-      return FALSE;
-    }
-    if (empty($cache->data)) {
+    if (!$cache || empty($cache->data)) {
       return FALSE;
     }
     if ((REQUEST_TIME - $cache->created) > $conf['lifetime']) {
@@ -80,7 +94,7 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     dsm($pane, __METHOD__);
     if (!empty($content)) {
       $cid = $this->getId($conf, $display, $args, $contexts, $pane);
-      $this->cacheBackend->set($cid, $content);
+      $this->cache->set($cid, $content);
     }
   }
 
@@ -91,28 +105,29 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
     dsm(get_defined_vars(), __METHOD__);
     $base_cid = $this->getBaseCid($display);
 
-    $this->cacheBackend->clear($base_cid, TRUE);
+    $this->cache->clear($base_cid, TRUE);
   }
 
   /**
    * Construct base cid for display.
    */
   protected function getBaseCid($display) {
-    $base_id = 'panels-hash-cache';
+    $cid = [static::CID_BASE];
 
     // This is used in case this is an in-code display, which means did will be
     // something like 'new-1'.
     if (isset($display->owner) && isset($display->owner->id)) {
-      $base_id .= '-' . $display->owner->id;
+      $cid[] = $display->owner->id;
     }
     if (isset($display->cache_key)) {
-      $base_id .= '-' . $display->cache_key;
+      $cid[] = $display->cache_key;
     }
     elseif (isset($display->css_id)) {
-      $base_id .= '-' . $display->css_id;
+      $cid[] = $display->css_id;
     }
 
-    return $base_id;
+    $result = implode('-', $cid);
+    return $result;
   }
 
   /**
@@ -143,20 +158,24 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
       $id .= '-admin';
     }
 
-    // For each selected ganularity situation, add it to the "hashable-string".
+    // For each selected granularity situation, add it to the "hashable-string".
     // This hashable string becomes our cache-key (after it's hashed to shorten
     // it).
     $hashable_string = '';
 
+  // Granularity: Page arguments.
     if (!empty($conf['granularity']['args'])) {
       foreach ($args as $arg) {
         $hashable_string .= $arg;
       }
     }
+
+  // Granularity: Page context.
     if (!empty($conf['granularity']['context'])) {
       if (!is_array($contexts)) {
         $contexts = array($contexts);
       }
+    // Loop through each context.
       foreach ($contexts as $context) {
         // Avoid problems with Panelizer.
         if (is_object($context->data) && isset($context->data->panelizer)) {
@@ -179,9 +198,9 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
       $get = $_GET;
       unset($get['q']);
 
-      // If panels-hash-cache-reset is set, unset it from the query to hash.
-      if (isset($_GET['panels-hash-cache-reset'])) {
-        unset($get['panels-hash-cache-reset']);
+      // If reset key is set, unset it from the query to hash.
+      if (isset($_GET[static::RESET_KEY_NAME])) {
+        unset($get[static::RESET_KEY_NAME]);
       }
 
       if (!empty($get)) {
@@ -191,12 +210,13 @@ class PanelsCachePlugin extends PanelsCachePluginBase {
       $hashable_string .= $url;
     }
 
-    // Support for the Domain Access module.
+    // Support the Domain Access module.
     if (module_exists('domain') && $conf['granularity']['domain']) {
       $current_domain = domain_get_domain();
       $hashable_string .= '-domain' . $current_domain['domain_id'];
     }
 
+  // Granularity: Current page's user.
     if (!empty($conf['granularity']['user'])) {
       // For user we hash on their UID which is unique.
       global $user;

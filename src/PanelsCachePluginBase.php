@@ -40,16 +40,16 @@ abstract class PanelsCachePluginBase {
    */
   protected static $instance = NULL;
 
-  protected $cacheBackend;
+  protected $cache;
 
   /**
    * Constructor.
    *
-   * @param \DrupalCacheInterface $cache_backend
+   * @param \DrupalCacheInterface $cache
    *   The cache backend to use for this cache plugin.
    */
-  protected function __construct(\DrupalCacheInterface $cache_backend) {
-    $this->cacheBackend = $cache_backend;
+  protected function __construct(\DrupalCacheInterface $cache) {
+    $this->cache = $cache;
   }
 
   /**
