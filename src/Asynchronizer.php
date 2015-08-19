@@ -416,7 +416,7 @@ class Asynchronizer {
       static::QUEUE_NAME => [
       'worker callback' => [__CLASS__, 'work'],
       'time' => 30,
-      'skip on cron' => FALSE,
+      'skip on cron' => TRUE,
       ]
     ];
     return $ret;

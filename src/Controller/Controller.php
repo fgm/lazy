@@ -389,7 +389,7 @@ abstract class Controller implements BuilderInterface {
       static::QUEUE_NAME => [
       'worker callback' => [__CLASS__, 'work'],
       'time' => static::EXECUTE_TIMEOUT,
-      'skip on cron' => FALSE,
+      'skip on cron' => TRUE,
       ]
     ];
     return $ret;
